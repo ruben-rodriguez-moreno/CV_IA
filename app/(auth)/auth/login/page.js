@@ -119,7 +119,7 @@ export default function Login() {
                 </div>
 
                 <div className="text-sm">
-                  <Link href="/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
+                  <Link href="/auth/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
                     Forgot your password?
                   </Link>
                 </div>
@@ -155,7 +155,7 @@ export default function Login() {
                 className="w-full inline-flex justify-center items-center px-4 py-2 border border-secondary-300 rounded-md shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50"
               >
                 <img
-                  src="./img/iconGoogle.png"
+                  src="../img/iconGoogle.png"
                   alt="Google"
                   className="h-5 w-5 mr-2"
                 />

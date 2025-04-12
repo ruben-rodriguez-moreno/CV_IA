@@ -13,6 +13,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={inter.className}>
+        {/* Proveedor de autenticación para toda la aplicación */}
         <AuthProvider>
           {children}
         </AuthProvider>

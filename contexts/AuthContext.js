@@ -14,7 +14,8 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   signInWithRedirect,
-  signInWithPopup, // 👈 aquí el que faltaba
+  signInWithPopup, 
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 
 import Cookies from 'js-cookie';
@@ -27,6 +28,7 @@ const AuthContext = createContext({
   logout: async () => {},
   updateUserProfile: async () => {},
   loginWithGoogle: async () => {},
+  resetPassword: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -76,21 +78,43 @@ export function AuthProvider({ children }) {
   const updateUserProfile = (userProfile) => {
     return updateProfile(auth.currentUser, userProfile);
   };
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log('Password reset email sent successfully');
+    } catch (error) {
+      console.error('Error sending password reset email:', error.message);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
-
+  
+      const currentPath = window.location.pathname; // Obtiene la ruta actual
+  
       if (user) {
         const token = await getIdToken(user, true);
         Cookies.set('firebase-token', token, { expires: 7 });
-        router.push('/dashboard'); // Redirigir si está autenticado
+  
+        // Redirige al dashboard solo si no estás en una ruta pública
+        const publicPaths = ['/auth/login', '/auth/signup', '/auth/register', '/auth/forgot-password'];
+        if (!publicPaths.includes(currentPath)) {
+          router.push('/dashboard');
+        }
       } else {
         Cookies.remove('firebase-token');
+  
+        // Evita redirecciones innecesarias en rutas públicas
+        const protectedPaths = ['/dashboard', '/profile']; // Agrega aquí tus rutas protegidas
+        if (protectedPaths.includes(currentPath)) {
+          router.push('/auth/login');
+        }
       }
     });
-
+  
     // Capturar resultado de redirección con Google
     getRedirectResult(auth)
       .then(async (result) => {
@@ -103,7 +127,7 @@ export function AuthProvider({ children }) {
       .catch((error) => {
         console.error('Redirect error:', error);
       });
-
+  
     return unsubscribe;
   }, [router]);
 
@@ -114,6 +138,7 @@ export function AuthProvider({ children }) {
     logout,
     updateUserProfile,
     loginWithGoogle,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

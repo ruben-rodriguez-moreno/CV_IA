@@ -1,35 +1,34 @@
 import { NextResponse } from 'next/server';
 
 export async function middleware(request) {
-  // Get the pathname of the request
   const path = request.nextUrl.pathname;
-  
-  // Define public paths that don't require authentication
-  const isPublicPath = path === '/login' || 
-                       path === '/signup' || 
-                       path === '/register' ||  // Add this line
+
+  // Define public paths que no requieren autenticación
+  const isPublicPath = path === '/auth/login' || 
+                       path === '/auth/signup' || 
+                       path === '/auth/register' || 
                        path === '/' ||
                        path.startsWith('/api/') ||
-                       path.includes('.');
+                       path.includes('.') ||
+                       path === '/auth/forgot-password';
 
-  // For Firebase auth, we'll use a simplified check
-  // You can replace this with your own authentication logic
+  // Obtén el token de autenticación
   const token = request.cookies.get('firebase-token')?.value;
 
-  // Redirect logic for protected routes
+  // Redirige a login si el usuario no está autenticado y la ruta no es pública
   if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
-  // Redirect logic for auth routes when user is already logged in
-  if ((path === '/login' || path === '/signup' || path === '/register') && token) {
+  // Redirige al dashboard si el usuario ya está autenticado y está en una ruta pública
+  if (isPublicPath && token && (path === '/auth/login' || path === '/auth/signup' || path === '/auth/register')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
 }
 
-// Configure which paths this middleware will run on
+// Configura las rutas donde se aplica el middleware
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
