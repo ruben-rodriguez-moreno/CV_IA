@@ -12,12 +12,11 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   async function handleSubmit(e) {
     e.preventDefault();
-
     try {
       setError('');
       setLoading(true);
@@ -26,9 +25,23 @@ export default function Login() {
     } catch (error) {
       setError('Failed to sign in. Please check your credentials.');
       console.error(error);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    setLoading(false);
+  async function handleGoogleLogin() {
+    try {
+      setError('');
+      setLoading(true);
+      await loginWithGoogle();
+      router.push('/dashboard'); // <-- se ejecuta solo si login fue exitoso
+    } catch (error) {
+      setError('Google sign-in failed.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -54,7 +67,7 @@ export default function Login() {
                 <div className="text-sm text-red-700">{error}</div>
               </div>
             )}
-            
+
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-secondary-700">
@@ -122,6 +135,33 @@ export default function Login() {
                 </button>
               </div>
             </form>
+
+            {/* Divider */}
+            <div className="mt-6 relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-secondary-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-secondary-500">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Google Sign In Button */}
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full inline-flex justify-center items-center px-4 py-2 border border-secondary-300 rounded-md shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50"
+              >
+                <img
+                  src="./img/iconGoogle.png"
+                  alt="Google"
+                  className="h-5 w-5 mr-2"
+                />
+                {loading ? 'Signing in...' : 'Sign in with Google'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

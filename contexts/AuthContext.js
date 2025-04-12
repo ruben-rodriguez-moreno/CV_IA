@@ -1,96 +1,120 @@
 'use client';
 
 import { createContext, useState, useContext, useEffect } from 'react';
-import { 
-  auth, 
+import {
+  auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut 
+  signOut,
 } from '../config/firebase-browser';
-import { onAuthStateChanged, updateProfile, getIdToken } from 'firebase/auth';
-import Cookies from 'js-cookie';
+import {
+  onAuthStateChanged,
+  updateProfile,
+  getIdToken,
+  getRedirectResult,
+  GoogleAuthProvider,
+  signInWithRedirect,
+  signInWithPopup, // 👈 aquí el que faltaba
+} from 'firebase/auth';
 
-// Create the auth context with proper default values
+import Cookies from 'js-cookie';
+import { useRouter } from 'next/navigation';
+
 const AuthContext = createContext({
   currentUser: null,
   login: async () => {},
   signup: async () => {},
   logout: async () => {},
-  updateUserProfile: async () => {}
+  updateUserProfile: async () => {},
+  loginWithGoogle: async () => {},
 });
 
-// Hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  // Register a new user
   const signup = async (email, password) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    // Get token and set cookie
     const token = await getIdToken(result.user, true);
-    Cookies.set('firebase-token', token, { expires: 7 }); // 7 days expiry
+    Cookies.set('firebase-token', token, { expires: 7 });
     return result;
   };
 
-  // Login existing user
   const login = async (email, password) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    // Get token and set cookie
     const token = await getIdToken(result.user, true);
-    Cookies.set('firebase-token', token, { expires: 7 }); // 7 days expiry
+    Cookies.set('firebase-token', token, { expires: 7 });
     return result;
   };
 
-  // Logout current user
-  const logout = () => {
-    // Clear the cookie
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({
+    prompt: 'select_account', // Fuerza a mostrar el selector de cuentas
+  });
+
+  try {
+    const result = await signInWithPopup(auth, provider); // O usa signInWithRedirect si prefieres redirección
+    const token = await getIdToken(result.user, true);
+    Cookies.set('firebase-token', token, { expires: 7 }); // Guarda el token en una cookie
+    return result;
+  } catch (error) {
+    console.error('Failed to sign in with Google:', error.message);
+    throw error;
+  }
+  };
+  
+
+  const logout = async () => {
     Cookies.remove('firebase-token');
     return signOut(auth);
   };
 
-  // Update user profile
   const updateUserProfile = (userProfile) => {
     return updateProfile(auth.currentUser, userProfile);
   };
 
-  // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
-      
+
       if (user) {
-        // Get fresh token on auth state change
         const token = await getIdToken(user, true);
-        Cookies.set('firebase-token', token, { expires: 7 }); // 7 days expiry
+        Cookies.set('firebase-token', token, { expires: 7 });
+        router.push('/dashboard'); // Redirigir si está autenticado
       } else {
         Cookies.remove('firebase-token');
       }
     });
 
-    return unsubscribe;
-  }, []);
+    // Capturar resultado de redirección con Google
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          const token = await getIdToken(result.user, true);
+          Cookies.set('firebase-token', token, { expires: 7 });
+          router.push('/dashboard');
+        }
+      })
+      .catch((error) => {
+        console.error('Redirect error:', error);
+      });
 
-  // Context values to provide
+    return unsubscribe;
+  }, [router]);
+
   const value = {
     currentUser,
     login,
     signup,
     logout,
-    updateUserProfile
+    updateUserProfile,
+    loginWithGoogle,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
-}
-
-function MyComponent() {
-  const { currentUser } = useAuth(); // No more type errors
-  // ...
+  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 }
