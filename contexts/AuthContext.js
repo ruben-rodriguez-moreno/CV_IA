@@ -17,7 +17,7 @@ import {
   signInWithPopup, 
   sendPasswordResetEmail,
 } from 'firebase/auth';
-
+import {doc, setDoc, updateDoc, getDoc} from 'firebase/firestore';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 
@@ -38,11 +38,28 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const signup = async (email, password) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const token = await getIdToken(result.user, true);
-    Cookies.set('firebase-token', token, { expires: 7 });
-    return result;
+  const signup = async (email, password, fullName) => {
+    try {
+      // Crea el usuario en Firebase Authentication
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+  
+      // Obtén el token del usuario autenticado
+      const token = await getIdToken(result.user, true);
+      Cookies.set('firebase-token', token, { expires: 7 });
+  
+      // Crea un documento en Firestore para el usuario
+      const userDoc = doc(db, 'users', result.user.uid);
+      await setDoc(userDoc, {
+        fullName: fullName || '', // Nombre del usuario
+        email: result.user.email,
+        createdAt: new Date(),
+      });
+  
+      return result;
+    } catch (error) {
+      console.error('Error during signup:', error.message);
+      throw error;
+    }
   };
 
   const login = async (email, password) => {
@@ -75,8 +92,25 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   };
 
-  const updateUserProfile = (userProfile) => {
-    return updateProfile(auth.currentUser, userProfile);
+  const updateUserProfile = async (userProfile) => {
+    try {
+      // Actualiza el perfil del usuario en Firebase Authentication
+      await updateProfile(auth.currentUser, {
+        displayName: userProfile.fullName,
+      });
+  
+      // Actualiza el documento del usuario en Firestore
+      const userDoc = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userDoc, {
+        fullName: userProfile.fullName,
+        updatedAt: new Date(),
+      });
+  
+      console.log('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error.message);
+      throw error;
+    }
   };
   const resetPassword = async (email) => {
     try {

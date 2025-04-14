@@ -13,13 +13,15 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function Settings() {
-  const { currentUser } = useAuth();
+  const { currentUser, resetPassword } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [currentPlan, setCurrentPlan] = useState('free');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     if (currentUser) {
@@ -51,6 +53,26 @@ export default function Settings() {
     } catch (error) {
       console.error('Error updating profile:', error);
       setError('Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!currentUser?.email) {
+      setPasswordError('No email associated with this account.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setPasswordError('');
+      setPasswordMessage('');
+      await resetPassword(currentUser.email);
+      setPasswordMessage('Password reset email sent successfully. Check your inbox.');
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setPasswordError('Failed to send password reset email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -187,12 +209,15 @@ export default function Settings() {
             <p className="text-sm text-secondary-600 mb-4">
               Update your password to maintain account security.
             </p>
-            <a
-              href="/forgot-password"
+            {passwordMessage && <p className="text-green-600 mb-4">{passwordMessage}</p>}
+            {passwordError && <p className="text-red-600 mb-4">{passwordError}</p>}
+            <button
+              onClick={handleResetPassword}
               className="btn btn-secondary"
+              disabled={loading}
             >
-              Reset Password
-            </a>
+              {loading ? 'Sending...' : 'Reset Password'}
+            </button>
           </div>
         </div>
         
