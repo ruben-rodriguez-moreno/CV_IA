@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '/contexts/AuthContext';
 import { updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '/lib/firebase/config';
 import { 
   UserIcon,
   KeyIcon,
@@ -13,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function Settings() {
-  const { currentUser, resetPassword } = useAuth();
+  const { currentUser, resetPassword, updateUserProfile } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +20,7 @@ export default function Settings() {
   const [currentPlan, setCurrentPlan] = useState('free');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
 
   useEffect(() => {
     if (currentUser) {
@@ -33,22 +32,17 @@ export default function Settings() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    
+  
     if (!currentUser) return;
-    
+  
     try {
       setLoading(true);
       setError('');
       setSuccess('');
-      
-      // Update displayName in Firebase Auth
-      await updateProfile(currentUser, { displayName: name });
-      
-      // Update user document in Firestore
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        name
-      });
-      
+  
+      // Llama al método updateUserProfile del contexto
+      await updateUserProfile({ fullName: name });
+  
       setSuccess('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);

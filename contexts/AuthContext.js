@@ -99,11 +99,10 @@ export function AuthProvider({ children }) {
         displayName: userProfile.fullName,
       });
   
-      // Actualiza el documento del usuario en Firestore
-      const userDoc = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userDoc, {
-        fullName: userProfile.fullName,
-        updatedAt: new Date(),
+      // Actualiza el estado local del usuario
+      setCurrentUser({
+        ...auth.currentUser,
+        displayName: userProfile.fullName,
       });
   
       console.log('Profile updated successfully');
