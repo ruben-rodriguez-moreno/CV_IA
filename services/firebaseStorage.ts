@@ -1,6 +1,7 @@
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getFirestore, collection, addDoc, serverTimestamp, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import { auth } from '../config/firebase';
 
 interface UploadParams {
   file: File;
@@ -19,6 +20,7 @@ interface QueueItem {
   status: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
+// Método para subir un archivo a Firebase Storage
 export const uploadFileToStorage = async ({
   file,
   userId,
@@ -34,10 +36,10 @@ export const uploadFileToStorage = async ({
     const storagePath = `cvs/${userId}/${fileId}.${fileExtension}`;
     const storageRef = ref(storage, storagePath);
 
-    // Create upload task
+    // Crear tarea de subida
     const uploadTask = uploadBytesResumable(storageRef, file);
 
-    // Monitor upload progress
+    // Monitorear el progreso de la subida
     uploadTask.on(
       'state_changed',
       (snapshot) => {
@@ -52,19 +54,20 @@ export const uploadFileToStorage = async ({
         }
       },
       async () => {
-        // Upload completed successfully
+        // Subida completada exitosamente
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        
-        // Add to processing queue in Firestore
-        await addDoc(collection(db, 'processingQueue'), {
-          userId,
-          fileUrl: downloadURL,
-          fileName: file.name,
-          fileId,
-          timestamp: serverTimestamp(),
-          status: 'pending'
+
+        // Agregar a la cola de procesamiento en Firestore
+        await addDoc(collection(db, 'cvs'), {
+          userId: userId || 'sharedLink', // Si no hay usuario autenticado, asigna "sharedLink"
+          fileUrl: downloadURL, // URL del archivo subido a Firebase Storage
+          fileName: file.name, // Nombre del archivo
+          fileId, // ID único generado para el archivo
+          timestamp: serverTimestamp(), // Marca de tiempo del servidor
+          status: 'pending', // Estado inicial del archivo
+          sharedLinkId: userId ? null : uuidv4(), // Si es un shared link, genera un ID único para el enlace
         } as QueueItem);
-        
+
         if (onSuccess) {
           onSuccess(downloadURL, fileId);
         }
@@ -77,26 +80,62 @@ export const uploadFileToStorage = async ({
   }
 };
 
+// Método para eliminar un CV (documento y archivo)
+export const deleteCV = async (cvId: string, filePath: string): Promise<void> => {
+  try {
+    const db = getFirestore();
+    const storage = getStorage();
+
+    // Verifica si el documento existe y obtiene sus datos
+    const cvRef = doc(db, 'cvs', cvId);
+    const cvSnapshot = await getDoc(cvRef);
+
+    if (!cvSnapshot.exists()) {
+      throw new Error('El documento no existe');
+    }
+
+    const cvData = cvSnapshot.data();
+
+    // Verifica si el documento pertenece al usuario autenticado o fue subido mediante shared link
+    if (cvData.userId !== 'sharedLink' && cvData.userId !== auth.currentUser?.uid) {
+      throw new Error('No tienes permiso para eliminar este documento');
+    }
+
+    // Elimina el documento en Firestore
+    await deleteDoc(cvRef);
+    console.log(`Documento con ID ${cvId} eliminado de Firestore`);
+
+    // Elimina el archivo en Firebase Storage
+    const fileRef = ref(storage, filePath);
+    await deleteObject(fileRef);
+    console.log(`Archivo en la ruta ${filePath} eliminado de Firebase Storage`);
+
+    console.log('CV eliminado correctamente');
+  } catch (error) {
+    console.error('Error al eliminar el CV:', error.message);
+    throw error;
+  }
+};
+
+// Método para verificar los límites de subida del usuario
 export const checkUserUploadLimits = async (userId: string): Promise<{
   currentUploads: number;
   maxUploads: number;
   isLimitReached: boolean;
   planType: 'free' | 'pro';
 }> => {
-  // This would typically be a Firebase function, but for demo we'll mock it
   try {
     const db = getFirestore();
-    
-    // Get the user's plan
-    // In a real implementation, you'd fetch this from Firestore
-    const planType: 'free' | 'pro' = 'free'; // Mock data
-    
-    // Define limits based on plan
+
+    // Obtener el plan del usuario (mock para este ejemplo)
+    const planType: 'free' | 'pro' = 'free'; // Datos simulados
+
+    // Definir límites según el plan
     const maxUploads = planType === 'free' ? 5 : 100;
-    
-    // Count user's uploads this month (mock implementation)
-    const currentUploads = 3; // Mock data
-    
+
+    // Contar las subidas del usuario este mes (mock para este ejemplo)
+    const currentUploads = 3; // Datos simulados
+
     return {
       currentUploads,
       maxUploads,
@@ -104,10 +143,10 @@ export const checkUserUploadLimits = async (userId: string): Promise<{
       planType
     };
   } catch (error) {
-    console.error('Error checking upload limits:', error);
+    console.error('Error al verificar los límites de subida:', error);
     return {
       currentUploads: 0,
-      maxUploads: 5, // Default to free plan
+      maxUploads: 5, // Por defecto, plan gratuito
       isLimitReached: false,
       planType: 'free'
     };

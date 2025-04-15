@@ -20,6 +20,7 @@ import {
 import {doc, setDoc, updateDoc, getDoc} from 'firebase/firestore';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
+import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const AuthContext = createContext({
   currentUser: null,
@@ -122,11 +123,23 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
+    const configurePersistence = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence); // Persiste el estado en el almacenamiento local
+      } catch (error) {
+        console.error('Error setting persistence:', error);
+      }
+    };
+  
+    configurePersistence();
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
   
-      const currentPath = window.location.pathname; // Obtiene la ruta actual
+      const currentPath = window.location.pathname;
   
       if (user) {
         const token = await getIdToken(user, true);
@@ -134,7 +147,7 @@ export function AuthProvider({ children }) {
   
         // Redirige al dashboard solo si no estás en una ruta pública
         const publicPaths = ['/auth/login', '/auth/signup', '/auth/register', '/auth/forgot-password'];
-        if (!publicPaths.includes(currentPath)) {
+        if (publicPaths.includes(currentPath)) {
           router.push('/dashboard');
         }
       } else {
@@ -147,19 +160,6 @@ export function AuthProvider({ children }) {
         }
       }
     });
-  
-    // Capturar resultado de redirección con Google
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
-          const token = await getIdToken(result.user, true);
-          Cookies.set('firebase-token', token, { expires: 7 });
-          router.push('/dashboard');
-        }
-      })
-      .catch((error) => {
-        console.error('Redirect error:', error);
-      });
   
     return unsubscribe;
   }, [router]);

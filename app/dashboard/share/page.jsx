@@ -55,23 +55,29 @@ export default function SharePage() {
 
   const createShareLink = async () => {
     if (!currentUser || !linkDescription.trim()) return;
-
+  
     setLoadingCreate(true);
     setError(null);
-
+  
     try {
+      // Datos del enlace compartido
       const linkData = {
-        creatorId: currentUser.uid,
+        creatorId: currentUser.uid, // Asegúrate de incluir el UID del usuario autenticado
         description: linkDescription.trim(),
         createdAt: serverTimestamp(),
-        active: true,
+        active: true, // Indica que el enlace está activo
       };
-
+  
       console.log("Creating shared link with data:", linkData);
+  
+      // Agregar el enlace compartido a Firestore
       const docRef = await addDoc(collection(db, 'sharedLinks'), linkData);
       console.log("Shared link created with ID:", docRef.id);
-
+  
+      // Actualizar la lista de enlaces compartidos
       await fetchSharedLinks();
+  
+      // Restablecer el formulario
       setLinkDescription('');
       setShowLinkForm(false);
     } catch (err) {
