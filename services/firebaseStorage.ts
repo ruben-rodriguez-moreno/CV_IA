@@ -1,11 +1,27 @@
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { getFirestore, collection, addDoc, serverTimestamp, doc, deleteDoc, getDoc } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject
+} from 'firebase/storage';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  deleteDoc,
+  getDoc
+} from 'firebase/firestore';
 import { auth } from '../config/firebase';
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
+import { v4 as uuidv4 } from 'uuid';
 
 interface UploadParams {
   file: File;
-  userId: string;
+  userId?: string;  // userId es opcional (para sharedLinks)
   onProgress?: (progress: number) => void;
   onError?: (error: Error) => void;
   onSuccess?: (url: string, fileId: string) => void;
@@ -16,11 +32,13 @@ interface QueueItem {
   fileUrl: string;
   fileName: string;
   fileId: string;
+  filePath: string;
   timestamp: any;
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  sharedLinkId?: string | null;
 }
 
-// Método para subir un archivo a Firebase Storage
+// Subir archivo (maneja usuarios registrados y sharedLinks)
 export const uploadFileToStorage = async ({
   file,
   userId,
@@ -32,123 +50,109 @@ export const uploadFileToStorage = async ({
     const storage = getStorage();
     const db = getFirestore();
     const fileId = uuidv4();
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    const storagePath = `cvs/${userId}/${fileId}.${fileExtension}`;
-    const storageRef = ref(storage, storagePath);
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+    
+    // Definir ruta según el tipo de usuario
+    const isSharedLink = !userId;  // Si no hay userId, es un sharedLink
+    const storagePath = isSharedLink 
+      ? `cvs/sharedLink/${fileId}.${extension}`  // Ruta especial para sharedLinks
+      : `cvs/${userId}/${fileId}.${extension}`;  // Ruta para usuarios registrados
 
-    // Crear tarea de subida
+    const storageRef = ref(storage, storagePath);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
-    // Monitorear el progreso de la subida
     uploadTask.on(
       'state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        if (onProgress) {
-          onProgress(progress);
-        }
+        onProgress?.(progress);
       },
       (error) => {
-        if (onError) {
-          onError(error);
-        }
+        onError?.(error);
       },
       async () => {
-        // Subida completada exitosamente
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const sharedLinkId = isSharedLink ? uuidv4() : null;  // Generar ID solo para sharedLinks
 
-        // Agregar a la cola de procesamiento en Firestore
         await addDoc(collection(db, 'cvs'), {
-          userId: userId || 'sharedLink', // Si no hay usuario autenticado, asigna "sharedLink"
-          fileUrl: downloadURL, // URL del archivo subido a Firebase Storage
-          fileName: file.name, // Nombre del archivo
-          fileId, // ID único generado para el archivo
-          timestamp: serverTimestamp(), // Marca de tiempo del servidor
-          status: 'pending', // Estado inicial del archivo
-          sharedLinkId: userId ? null : uuidv4(), // Si es un shared link, genera un ID único para el enlace
+          userId: isSharedLink ? 'sharedLink' : userId,  // Marcar claramente el tipo
+          fileUrl: downloadURL,
+          fileName: file.name,
+          fileId,
+          filePath: storagePath,
+          timestamp: serverTimestamp(),
+          status: 'pending',
+          sharedLinkId  // Guardar ID único para referencia segura
         } as QueueItem);
 
-        if (onSuccess) {
-          onSuccess(downloadURL, fileId);
-        }
+        onSuccess?.(downloadURL, fileId);
       }
     );
   } catch (error) {
-    if (onError) {
-      onError(error as Error);
-    }
+    onError?.(error as Error);
   }
 };
 
-// Método para eliminar un CV (documento y archivo)
+// Eliminar CV (solo para usuarios autenticados)
 export const deleteCV = async (cvId: string, filePath: string): Promise<void> => {
-  try {
-    const db = getFirestore();
-    const storage = getStorage();
+  const db = getFirestore();
+  const storage = getStorage();
+  const user = auth.currentUser;
 
-    // Verifica si el documento existe y obtiene sus datos
+  try {
+    if (!user) throw new Error('Usuario no autenticado');
+
     const cvRef = doc(db, 'cvs', cvId);
     const cvSnapshot = await getDoc(cvRef);
 
-    if (!cvSnapshot.exists()) {
-      throw new Error('El documento no existe');
+    if (!cvSnapshot.exists()) throw new Error('Documento no existe');
+    const cvData = cvSnapshot.data() as QueueItem;
+
+    // Validación reforzada: Solo el propietario puede eliminar
+    if (cvData.userId !== user.uid) {
+      throw new Error('No tienes permisos para eliminar este CV');
     }
 
-    const cvData = cvSnapshot.data();
-
-    // Verifica si el documento pertenece al usuario autenticado o fue subido mediante shared link
-    if (cvData.userId !== 'sharedLink' && cvData.userId !== auth.currentUser?.uid) {
-      throw new Error('No tienes permiso para eliminar este documento');
-    }
-
-    // Elimina el documento en Firestore
+    // Eliminar de Firestore y Storage
     await deleteDoc(cvRef);
-    console.log(`Documento con ID ${cvId} eliminado de Firestore`);
-
-    // Elimina el archivo en Firebase Storage
-    const fileRef = ref(storage, filePath);
-    await deleteObject(fileRef);
-    console.log(`Archivo en la ruta ${filePath} eliminado de Firebase Storage`);
-
-    console.log('CV eliminado correctamente');
+    await deleteObject(ref(storage, cvData.filePath));
+    
   } catch (error) {
-    console.error('Error al eliminar el CV:', error.message);
+    console.error('Error eliminando CV:', (error as Error).message);
     throw error;
   }
 };
 
-// Método para verificar los límites de subida del usuario
-export const checkUserUploadLimits = async (userId: string): Promise<{
-  currentUploads: number;
-  maxUploads: number;
-  isLimitReached: boolean;
-  planType: 'free' | 'pro';
-}> => {
-  try {
-    const db = getFirestore();
+// Función Cloud para eliminar sharedLinks (solo desde el servidor)
+export const deleteSharedCV = functions.https.onCall(
+  async (request: functions.https.CallableRequest<{ cvId: string; sharedLinkId: string }>) => {
+    const { cvId, sharedLinkId } = request.data;
 
-    // Obtener el plan del usuario (mock para este ejemplo)
-    const planType: 'free' | 'pro' = 'free'; // Datos simulados
+    // Validación de datos
+    if (!cvId || !sharedLinkId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Datos incompletos');
+    }
 
-    // Definir límites según el plan
-    const maxUploads = planType === 'free' ? 5 : 100;
+    const db = admin.firestore();
+    const cvRef = db.collection('cvs').doc(cvId);
+    const cvSnapshot = await cvRef.get();
 
-    // Contar las subidas del usuario este mes (mock para este ejemplo)
-    const currentUploads = 3; // Datos simulados
+    // Verificar existencia del CV
+    if (!cvSnapshot.exists) {
+      throw new functions.https.HttpsError('not-found', 'CV no encontrado');
+    }
 
-    return {
-      currentUploads,
-      maxUploads,
-      isLimitReached: currentUploads >= maxUploads,
-      planType
-    };
-  } catch (error) {
-    console.error('Error al verificar los límites de subida:', error);
-    return {
-      currentUploads: 0,
-      maxUploads: 5, // Por defecto, plan gratuito
-      isLimitReached: false,
-      planType: 'free'
-    };
+    const cvData = cvSnapshot.data() as QueueItem;
+
+    // Validar coincidencia de sharedLinkId
+    if (cvData.sharedLinkId !== sharedLinkId) {
+      throw new functions.https.HttpsError('permission-denied', 'ID de enlace inválido');
+    }
+
+    // Eliminar con privilegios de administrador (bypasea reglas de seguridad)
+    await cvRef.delete();
+    await admin.storage().bucket().file(cvData.filePath).delete();
+
+    return { success: true };
   }
-};
+);
