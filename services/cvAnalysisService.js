@@ -1,194 +1,139 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase-browser';
+import { backOff } from 'exponential-backoff';
+
+// Estados del análisis
+export const ANALYSIS_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed'
+};
+
+// Configuración de reintentos
+const BACKOFF_CONFIG = {
+  numOfAttempts: 3,
+  startingDelay: 2000,
+  timeMultiple: 2,
+  retry: (e, attemptNumber) => {
+    console.log(`Reintento #${attemptNumber}: ${e.message}`);
+    return true;
+  }
+};
 
 /**
- * Main function to analyze a CV
- * @param {string} cvText - The text content of the CV
- * @param {string} fileName - Name of the CV file
- * @param {string} token - Firebase authentication token
- * @returns {Promise<Object>} - Analysis results
+ * Función principal para analizar un CV con manejo de estados
  */
 export async function analyzeCv(cvText, fileName, token) {
   try {
-    const response = await fetch('/api/analyze-cv', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ cvText, fileName }),
+    // Registrar análisis inicial en Firestore
+    const fileId = fileName || `cv_${Date.now()}`;
+    await setDoc(doc(db, 'cvAnalyses', fileId), {
+      status: ANALYSIS_STATUS.PENDING,
+      fileName,
+      created: new Date().toISOString(),
+      metadata: {
+        textLength: cvText.length,
+        attempts: 0
+      }
+    });
+
+    // Ejecutar análisis con reintentos
+    const result = await backOff(async () => {
+      const response = await fetch('/api/analyze-cv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ cvText, fileName })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error en el análisis');
+      }
+      
+      return await response.json();
+    }, BACKOFF_CONFIG);
+
+    // Actualizar estado a completado
+    await updateDoc(doc(db, 'cvAnalyses', fileId), {
+      status: ANALYSIS_STATUS.COMPLETED,
+      analysis: result.analysis,
+      completedAt: new Date().toISOString(),
+      'metadata.attempts': BACKOFF_CONFIG.numOfAttempts
+    });
+
+    return result.analysis;
+
+  } catch (error) {
+    // Actualizar estado a fallido
+    await updateDoc(doc(db, 'cvAnalyses', fileId), {
+      status: ANALYSIS_STATUS.FAILED,
+      error: error.message,
+      failedAt: new Date().toISOString()
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to analyze CV');
-    }
-    
-    const data = await response.json();
-    return data.analysis;
-  } catch (error) {
-    console.error("Error analyzing CV:", error);
     throw error;
   }
 }
 
 /**
- * Extract structured information from CV text
- * @param {string} cvText - The text content of the CV
- * @param {string} token - Firebase auth token
- * @returns {Promise<Object>} - Structured CV data
+ * Función mejorada para extraer información con manejo de caché
  */
 export async function extractCvInformation(cvText, token) {
+  const cacheKey = `extract_${hashCode(cvText)}`;
+  
   try {
+    // Verificar caché primero
+    const cached = await getCachedAnalysis(cacheKey);
+    if (cached) return cached;
+
     const response = await fetch('/api/extract-cv-info', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ cvText }),
+      body: JSON.stringify({ cvText })
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to extract CV information');
-    }
+
+    if (!response.ok) throw new Error('Error en extracción');
     
     const data = await response.json();
+    
+    // Almacenar en caché
+    await cacheAnalysisResult(cacheKey, token, data.cvInfo);
+    
     return data.cvInfo;
+
   } catch (error) {
-    console.error("Error extracting CV information:", error);
+    console.error("Error en extracción:", error);
     throw error;
   }
 }
 
 /**
- * Generate embeddings for semantic search
- * @param {string} text - Text to generate embeddings for
- * @param {string} token - Firebase auth token
- * @returns {Promise<Array>} - Vector embeddings
- */
-export async function generateEmbeddings(text, token) {
-  try {
-    const response = await fetch('/api/generate-embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ text }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to generate embeddings');
-    }
-    
-    const data = await response.json();
-    return data.embeddings;
-  } catch (error) {
-    console.error("Error generating embeddings:", error);
-    return null;
-  }
-}
-
-/**
- * Get cached analysis result from Firestore
- * @param {string} fileId - CV file ID
- * @returns {Promise<Object|null>} - Cached analysis or null if not found
- */
-export async function getCachedAnalysis(fileId) {
-  try {
-    const docRef = doc(db, 'cvAnalysis', fileId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return docSnap.data();
-    }
-    return null;
-  } catch (error) {
-    console.warn('Error retrieving cached analysis:', error);
-    return null;
-  }
-}
-
-/**
- * Cache analysis result in Firestore
- * @param {string} fileId - CV file ID
- * @param {string} userId - User ID who uploaded the CV
- * @param {Object} analysisResult - The analysis result to cache
+ * Función de caché mejorada
  */
 export async function cacheAnalysisResult(fileId, userId, analysisResult) {
   try {
-    await setDoc(doc(db, 'cvAnalysis', fileId), {
+    await setDoc(doc(db, 'cvAnalysisCache', fileId), {
       ...analysisResult,
       userId,
       cachedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 1 semana
     });
-    console.log('CV analysis cached successfully');
+    
   } catch (error) {
-    console.error('Error caching CV analysis:', error);
+    console.error('Error en caché:', error);
   }
 }
 
-/**
- * Compare a job description with a CV using embeddings via API
- * @param {string} jobDescription - Job description text
- * @param {string} cvText - CV text content
- * @param {string} token - Firebase authentication token
- * @returns {Promise<number>} - Similarity score (0-1)
- */
-export async function calculateJobMatch(jobDescription, cvText, token) {
-  try {
-    const response = await fetch('/api/job-match', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ jobDescription, cvText }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to calculate job match');
-    }
-    
-    const data = await response.json();
-    return data.matchScore;
-  } catch (error) {
-    console.error('Error calculating job match:', error);
-    return null;
-  }
-}
-
-/**
- * Calculate cosine similarity between two vectors
- * @param {Array} vec1 - First vector
- * @param {Array} vec2 - Second vector
- * @returns {number} - Similarity score (0-1)
- */
-export function calculateCosineSimilarity(vec1, vec2) {
-  if (!vec1 || !vec2 || vec1.length !== vec2.length) {
-    return 0;
-  }
-  
-  let dotProduct = 0;
-  let mag1 = 0;
-  let mag2 = 0;
-  
-  for (let i = 0; i < vec1.length; i++) {
-    dotProduct += vec1[i] * vec2[i];
-    mag1 += vec1[i] * vec1[i];
-    mag2 += vec2[i] * vec2[i];
-  }
-  
-  mag1 = Math.sqrt(mag1);
-  mag2 = Math.sqrt(mag2);
-  
-  if (mag1 === 0 || mag2 === 0) {
-    return 0;
-  }
-  
-  return dotProduct / (mag1 * mag2);
+// Función auxiliar para generar hash
+function hashCode(str) {
+  return str.split('').reduce((a, b) => {
+    a = (a << 5) - a + b.charCodeAt(0);
+    return a & a;
+  }, 0);
 }

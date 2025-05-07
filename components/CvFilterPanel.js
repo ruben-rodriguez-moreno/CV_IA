@@ -80,8 +80,10 @@ const CvFilterPanel = ({ onSearch, availableSkills = [], isLoading = false }) =>
   // Handle search submission
   const handleSearch = () => {
     onSearch({
-      keywords: selectedTags,
-      ...filters
+      keywords: selectedTags.map(tag => tag.toLowerCase()), // Normalizar a minúsculas
+      experienceYears: filters.experienceYears,
+      educationLevel: filters.educationLevel,
+      location: filters.location.toLowerCase() // Normalizar ubicación
     });
   };
 

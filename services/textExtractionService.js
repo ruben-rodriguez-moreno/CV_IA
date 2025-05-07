@@ -1,44 +1,49 @@
 import { getDownloadURL } from 'firebase/storage';
 import { backOff } from 'exponential-backoff';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 
+async function updateAnalysisStatus(docId, status, extractedText = null) {
+  const db = getFirestore();
+  const docRef = doc(db, 'cvs', docId);
+
+  const updateData = { status };
+  if (extractedText) {
+    updateData.extractedText = extractedText;
+  }
+
+  await updateDoc(docRef, updateData);
+}
 /**
  * Extract text from a PDF or DOCX file using a serverless function
  * @param {string} fileUrl - URL to the file
  * @returns {Promise<string>} - Extracted text
  */
-export async function extractTextFromFile(fileUrl) {
+export async function extractTextAndUpdateStatus(fileUrl, docId) {
   try {
-    // This function would call a serverless function that handles document parsing
-    // For actual implementation, you'd need to set up a serverless function 
-    // using libraries like pdf.js or docx.js to extract text
-    
-    // Mock implementation for now
-    const extractWithRetry = async () => {
-      // In a real implementation, this would be an API call to your serverless function
-      const response = await fetch('/api/extract-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fileUrl }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to extract text: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      return data.text;
-    };
-    
-    // Use backOff for retries
-    return await backOff(extractWithRetry, {
-      numOfAttempts: 3,
-      startingDelay: 1000,
-      timeMultiple: 2,
+    // Cambia el estado a "processing"
+    await updateAnalysisStatus(docId, 'processing');
+
+    // Llama a la API para extraer el texto
+    const response = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fileUrl }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to extract text: ${response.statusText}`);
+    }
+
+    const { text } = await response.json();
+
+    // Cambia el estado a "completed" y guarda el texto extraído
+    await updateAnalysisStatus(docId, 'completed', text);
   } catch (error) {
-    console.error('Error extracting text from file:', error);
-    throw new Error(`Failed to extract text from file: ${error.message}`);
+    console.error('Error during text extraction:', error);
+
+    // Cambia el estado a "failed" en caso de error
+    await updateAnalysisStatus(docId, 'failed');
   }
 }

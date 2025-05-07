@@ -14,31 +14,87 @@ import { calculateJobMatch } from './cvAnalysisService';
  */
 export async function searchCvs(userId, filters) {
   try {
-    // Start with base query for user's CVs
     let q = query(
       collection(db, 'cvs'),
-      where('userId', '==', userId),
-      orderBy('uploadedAt', 'desc')
+      where('userId', '==', userId)
     );
 
-    // Get all documents (we'll filter in-memory for more complex queries)
+    // Filtros directos en Firestore
+    if (filters.keywords?.length > 0) {
+      q = query(q, where('analysis.skills', 'array-contains-any', filters.keywords));
+    }
+
+    if (filters.experienceYears) {
+      const [minExp, maxExp] = parseExperienceRange(filters.experienceYears);
+      q = query(q, where('analysis.experienceLevel', '>=', minExp));
+      q = query(q, where('analysis.experienceLevel', '<=', maxExp));
+    }
+
     const querySnapshot = await getDocs(q);
     
-    // Convert documents to array with data
     let results = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
-      uploadedAt: doc.data().uploadedAt?.toDate?.() || new Date(),
-      matchScore: 0 // Default score
+      matchScore: calculateBasicMatchScore(doc.data(), filters)
     }));
 
-    // Filter results by additional criteria
-    results = await filterResults(results, filters);
-    
-    return results;
+    // Filtros adicionales en memoria
+    results = results.filter(cv => {
+      let isMatch = true;
+      
+      // Filtro de educación
+      if (filters.educationLevel && !checkEducationLevel(cv.analysis?.education, filters.educationLevel)) {
+        isMatch = false;
+      }
+      
+      // Filtro de ubicación
+      if (filters.location && !checkLocationMatch(cv.analysis, filters.location)) {
+        isMatch = false;
+      }
+
+      return isMatch;
+    });
+
+    return results.sort((a, b) => b.matchScore - a.matchScore);
   } catch (error) {
     console.error('Error searching CVs:', error);
     throw new Error('Failed to search CVs');
+  }
+}
+
+// Función auxiliar para calcular coincidencia básica
+function calculateBasicMatchScore(cvData, filters) {
+  let score = 0;
+  
+  // Coincidencia de habilidades
+  if (filters.keywords?.length > 0 && cvData.analysis?.skills) {
+    const matchedSkills = cvData.analysis.skills.filter(skill =>
+      filters.keywords.includes(skill.toLowerCase())
+    ).length;
+    
+    score += (matchedSkills / filters.keywords.length) * 100;
+  }
+
+  // Coincidencia de experiencia
+  if (filters.experienceYears) {
+    const [minExp] = parseExperienceRange(filters.experienceYears);
+    if (cvData.analysis?.experienceLevel >= minExp) {
+      score += 25;
+    }
+  }
+
+  return Math.min(score, 100);
+}
+
+// Función para parsear rangos de experiencia
+function parseExperienceRange(range) {
+  switch(range) {
+    case '0-1': return [0, 1];
+    case '1-3': return [1, 3];
+    case '3-5': return [3, 5];
+    case '5-10': return [5, 10];
+    case '10+': return [10, 100];
+    default: return [0, 100];
   }
 }
 

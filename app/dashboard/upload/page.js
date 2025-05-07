@@ -1,5 +1,5 @@
 'use client';
-
+import { extractTextAndUpdateStatus } from '../../../services/textExtractionService';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '/contexts/AuthContext';
@@ -66,34 +66,31 @@ export default function UploadCV() {
 
   const uploadCV = async (sharedLink = false, sharedLinkId = null) => {
     if (!file) return;
-    
+  
     try {
       setLoading(true);
       setError('');
-      
-      // Create a storage reference - path differs for shared links
+  
+      // Crear una referencia de almacenamiento
       const fileExtension = file.name.split('.').pop();
       let fileName, storageRef;
-      
+  
       if (sharedLink && sharedLinkId) {
-        // For shared links, use their specific path format
         fileName = `${Date.now()}_${file.name}`;
         storageRef = ref(storage, `cvs/shared/${sharedLinkId}/${fileName}`);
       } else {
-        // For direct uploads, use the original path format
         fileName = `${currentUser.uid}_${Date.now()}.${fileExtension}`;
         storageRef = ref(storage, `cvs/${fileName}`);
       }
-      
-      // Upload file
+  
+      // Subir el archivo
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      // Create metadata based on upload type
+  
+      // Crear metadatos
       let fileMetadata;
-      
+  
       if (sharedLink && sharedLinkId) {
-        // Match the shared link metadata structure
         fileMetadata = {
           creatorId: currentUser.uid,
           fileName: file.name,
@@ -102,12 +99,11 @@ export default function UploadCV() {
           fromSharedLink: true,
           sharedLinkId: sharedLinkId,
           uploadDate: serverTimestamp(),
-          status: 'pending', // Add analysis fields for consistency
+          status: 'pending',
           score: null,
-          analysis: null
+          analysis: null,
         };
       } else {
-        // Standard direct upload metadata
         fileMetadata = {
           userId: currentUser.uid,
           fileName: file.name,
@@ -116,14 +112,17 @@ export default function UploadCV() {
           status: 'pending',
           score: null,
           analysis: null,
-          uploadSource: 'direct_upload'
+          uploadSource: 'direct_upload',
         };
       }
-      
-      // Save metadata to Firestore
+  
+      // Guardar metadatos en Firestore
       const docRef = await addDoc(collection(db, 'cvs'), fileMetadata);
-      
-      // Redirect to results page
+  
+      // Iniciar el análisis del archivo
+      await extractTextAndUpdateStatus(downloadURL, docRef.id);
+  
+      // Redirigir a la página de resultados
       router.push('/dashboard/results');
     } catch (error) {
       console.error('Error uploading file:', error);

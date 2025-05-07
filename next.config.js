@@ -12,6 +12,7 @@ const nextConfig = {
       // Set proper fallbacks for Node.js modules
       config.resolve.fallback = {
         ...config.resolve.fallback,
+        events: require.resolve("events"),
         fs: false,
         net: false,
         tls: false,
@@ -39,6 +40,14 @@ const nextConfig = {
       'undici': false,  // Disable undici
     };
     
+    config.resolve = {
+      ...config.resolve,
+      fallback: {
+        ...config.resolve.fallback,
+        events: require.resolve("events"),
+      },
+    };
+
     config.module.rules.push({
       test: /\.(js|mjs|jsx)$/,
       resolve: {
