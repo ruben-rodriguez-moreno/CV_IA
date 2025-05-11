@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../config/firebase-browser';
-import { 
-  DocumentTextIcon, 
-  ClockIcon, 
+import {
+  DocumentTextIcon,
+  ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
@@ -14,6 +14,9 @@ import {
   EyeIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
+
+// Libreria para formatear fechas
+import { format } from 'date-fns';
 
 export default function Results() {
   const { currentUser } = useAuth();
@@ -32,18 +35,18 @@ export default function Results() {
 
   async function fetchResults() {
     if (!currentUser) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       console.log("Current user ID:", currentUser.uid);
-      
+
       // Use a simpler query first to make sure you can access the collection
       const q = query(collection(db, 'cvs'));
       const querySnapshot = await getDocs(q);
       console.log("Total documents in cvs collection:", querySnapshot.size);
-      
+
       const allCvs = [];
       querySnapshot.forEach(doc => {
         const data = doc.data();
@@ -53,26 +56,26 @@ export default function Results() {
         });
         console.log("Document ID:", doc.id, "UserID:", data.userId);
       });
-      
+
       // Filter client-side to show only relevant CVs
-let filteredCvs = allCvs.filter(cv => 
-  // Standard field - this should work for both direct and shared uploads
-  cv.userId === currentUser.uid || 
-  cv.creatorId === currentUser.uid
-);
-      
+      let filteredCvs = allCvs.filter(cv =>
+        // Standard field - this should work for both direct and shared uploads
+        cv.userId === currentUser.uid ||
+        cv.creatorId === currentUser.uid
+      );
+
       // Apply status filter if needed
       if (activeFilter !== 'all') {
         filteredCvs = filteredCvs.filter(cv => cv.status === activeFilter);
       }
-      
+
       // Sort by date
       filteredCvs.sort((a, b) => {
         const dateA = a.uploadDate ? (a.uploadDate.toDate ? a.uploadDate.toDate() : new Date(a.uploadDate)) : new Date(0);
         const dateB = b.uploadDate ? (b.uploadDate.toDate ? b.uploadDate.toDate() : new Date(b.uploadDate)) : new Date(0);
         return dateB - dateA;
       });
-      
+
       setResults(filteredCvs);
       setLoading(false);
     } catch (err) {
@@ -82,6 +85,7 @@ let filteredCvs = allCvs.filter(cv =>
     }
   }
 
+
   const retryAnalysis = async (cvId) => {
     setProcessingAction(true);
     try {
@@ -90,7 +94,7 @@ let filteredCvs = allCvs.filter(cv =>
         retryCount: (results.find(r => r.id === cvId)?.retryCount || 0) + 1,
         updatedAt: new Date()
       });
-      
+
       await fetchResults();
       alert("Analysis retry initiated. Check back soon for updated results.");
     } catch (err) {
@@ -103,7 +107,7 @@ let filteredCvs = allCvs.filter(cv =>
 
   const deleteCv = async (cvId) => {
     if (!window.confirm("Are you sure you want to delete this CV?")) return;
-    
+
     setProcessingAction(true);
     try {
       await deleteDoc(doc(db, 'cvs', cvId));
@@ -121,20 +125,20 @@ let filteredCvs = allCvs.filter(cv =>
   };
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown';
-    
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    if (!timestamp) return 'Unknown'; // Si no hay fecha, muestra "Unknown"
+
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp); // Convierte el Timestamp de Firestore a Date
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
   const getStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'pending':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -204,51 +208,46 @@ let filteredCvs = allCvs.filter(cv =>
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
               onClick={() => setActiveFilter('all')}
-              className={`${
-                activeFilter === 'all'
+              className={`${activeFilter === 'all'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               All
             </button>
             <button
               onClick={() => setActiveFilter('pending')}
-              className={`${
-                activeFilter === 'pending'
+              className={`${activeFilter === 'pending'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Pending
             </button>
             <button
               onClick={() => setActiveFilter('processing')}
-              className={`${
-                activeFilter === 'processing'
+              className={`${activeFilter === 'processing'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Processing
             </button>
             <button
               onClick={() => setActiveFilter('completed')}
-              className={`${
-                activeFilter === 'completed'
+              className={`${activeFilter === 'completed'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Completed
             </button>
             <button
               onClick={() => setActiveFilter('failed')}
-              className={`${
-                activeFilter === 'failed'
+              className={`${activeFilter === 'failed'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
             >
               Failed
             </button>
@@ -266,8 +265,8 @@ let filteredCvs = allCvs.filter(cv =>
           <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No CVs found</h3>
           <p className="mt-1 text-sm text-gray-500">
-            {activeFilter === 'all' 
-              ? "You haven't uploaded any CVs yet" 
+            {activeFilter === 'all'
+              ? "You haven't uploaded any CVs yet"
               : `No CVs with status "${activeFilter}" found`}
           </p>
           <div className="mt-6">
@@ -305,7 +304,8 @@ let filteredCvs = allCvs.filter(cv =>
                     {result.fileName}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {formatDate(result.uploadDate)}
+                    {/* Formateamos la fecha */}
+                    {formatDate(result.uploadedAt || result.uploadDate)} 
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {getStatusBadge(result.status)}
@@ -320,7 +320,7 @@ let filteredCvs = allCvs.filter(cv =>
                       >
                         <EyeIcon className="h-5 w-5" />
                       </button>
-                      
+
                       {/* View analysis details */}
                       {result.status === 'completed' && (
                         <button
@@ -331,7 +331,7 @@ let filteredCvs = allCvs.filter(cv =>
                           <MagnifyingGlassIcon className="h-5 w-5" />
                         </button>
                       )}
-                      
+
                       {/* Retry analysis for pending or failed */}
                       {(result.status === 'pending' || result.status === 'failed') && (
                         <button
@@ -343,7 +343,7 @@ let filteredCvs = allCvs.filter(cv =>
                           <ArrowPathIcon className="h-5 w-5" />
                         </button>
                       )}
-                      
+
                       {/* Delete CV */}
                       <button
                         onClick={() => deleteCv(result.id)}
@@ -388,8 +388,8 @@ let filteredCvs = allCvs.filter(cv =>
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Skills</h4>
                       <div className="flex flex-wrap gap-2">
                         {selectedCv.analysis.skills.map((skill, index) => (
-                          <span 
-                            key={index} 
+                          <span
+                            key={index}
                             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                           >
                             {skill}
@@ -398,7 +398,7 @@ let filteredCvs = allCvs.filter(cv =>
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Experience Section */}
                   {selectedCv.analysis.experience && (
                     <div>
@@ -416,7 +416,7 @@ let filteredCvs = allCvs.filter(cv =>
                       ) : null}
                     </div>
                   )}
-                  
+
                   {/* Education Section */}
                   {selectedCv.analysis.education && (
                     <div>
@@ -434,7 +434,7 @@ let filteredCvs = allCvs.filter(cv =>
                       ) : null}
                     </div>
                   )}
-                  
+
                   {/* Summary Section */}
                   {selectedCv.analysis.summary && (
                     <div>
@@ -442,7 +442,7 @@ let filteredCvs = allCvs.filter(cv =>
                       <p className="text-sm text-gray-500">{selectedCv.analysis.summary}</p>
                     </div>
                   )}
-                  
+
                   {/* Feedback Section */}
                   {selectedCv.analysis.feedback && (
                     <div>
@@ -450,7 +450,7 @@ let filteredCvs = allCvs.filter(cv =>
                       <p className="text-sm text-gray-500">{selectedCv.analysis.feedback}</p>
                     </div>
                   )}
-                  
+
                   {/* Score Section */}
                   {selectedCv.analysis.score && (
                     <div>
