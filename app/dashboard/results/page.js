@@ -48,13 +48,12 @@ export default function Results() {
       console.log("Total documents in cvs collection:", querySnapshot.size);
 
       const allCvs = [];
-      querySnapshot.forEach(doc => {
+      querySnapshot.forEach((doc) => {
         const data = doc.data();
         allCvs.push({
           id: doc.id,
-          ...data
+          ...data, // Asegúrate de que fileURL esté incluido aquí
         });
-        console.log("Document ID:", doc.id, "UserID:", data.userId);
       });
 
       // Filter client-side to show only relevant CVs
@@ -314,7 +313,13 @@ export default function Results() {
                     <div className="flex justify-end space-x-3">
                       {/* View original CV */}
                       <button
-                        onClick={() => window.open(result.fileUrl, '_blank')}
+                        onClick={() => {
+                          if (result.fileURL) {
+                            window.open(result.fileURL, '_blank');
+                          } else {
+                            alert('File URL is not available. Please try again.');
+                          }
+                        }}
                         className="text-blue-600 hover:text-blue-900"
                         title="View Original CV"
                       >
@@ -477,7 +482,7 @@ export default function Results() {
             </div>
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
               <button
-                onClick={() => window.open(selectedCv.fileUrl, '_blank')}
+                onClick={() => window.open(selectedCv.fileURL, '_blank')}
                 className="mr-3 px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
               >
                 View Original CV
