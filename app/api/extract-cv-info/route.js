@@ -44,6 +44,7 @@ const PROMPT_CONFIG = {
   }`
 };
 
+
 export async function POST(request) {
   try {
     // Autenticación
@@ -107,6 +108,7 @@ export async function POST(request) {
       }
 
       // Actualizar Firestore
+      // Actualización de Firestore con el análisis completado
       await docRef.update({
         status: ANALYSIS_STATES.COMPLETED,
         analysis: {

@@ -30,22 +30,15 @@ export default function SubscriptionPage() {
     fetchSubscriptionData();
   }, [currentUser]);
   
-  const handleSubscribe = async (planId) => {
-    try {
-      const response = await fetch('/api/subscription/create-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ planId }),
-      });
-      
-      const { url } = await response.json();
-      router.push(url); // Redirect to Stripe checkout
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-    }
-  };
+  const handleSubscribe = (planId) =>
+    fetch('/api/subscription/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId })
+    })
+      .then(r => r.json())
+      .then(({ url }) => window.location.href = url)
+      .catch(console.error);
 
   if (isLoading) {
     return <div className="text-center py-12">Loading subscription data...</div>;
@@ -124,9 +117,7 @@ export default function SubscriptionPage() {
             
             <button
               onClick={() => currentPlan !== 'pro' && handleSubscribe('pro')}
-              className={`mt-8 w-full py-2 px-4 rounded-md ${
-                currentPlan === 'pro' ? 'bg-secondary-200 text-secondary-800' : 'bg-primary-600 text-white hover:bg-primary-700'
-              }`}
+              className="mt-8 w-full py-2 px-4 rounded-md bg-primary-600 text-white hover:bg-primary-700"
               disabled={currentPlan === 'pro'}
             >
               {currentPlan === 'pro' ? 'Current Plan' : 'Subscribe'}
@@ -140,8 +131,8 @@ export default function SubscriptionPage() {
             <h2 className="text-xl font-semibold text-secondary-900">Enterprise Plan</h2>
             <p className="mt-4 text-secondary-600">Complete solution for businesses</p>
             <p className="mt-6">
-              <span className="text-4xl font-bold text-secondary-900">Custom</span>
-              <span className="text-secondary-500">/month</span>
+              <span className="text-4xl font-bold text-secondary-900">296</span>
+              <span className="text-secondary-500">/year</span>
             </p>
             
             <ul className="mt-6 space-y-4">
@@ -168,10 +159,10 @@ export default function SubscriptionPage() {
             </ul>
             
             <button
-              onClick={() => window.location.href = 'mailto:sales@cv-ia.com?subject=Enterprise Plan Inquiry'}
+              onClick={() => handleSubscribe('enterprise')}
               className="mt-8 w-full bg-primary-600 text-white hover:bg-primary-700 py-2 px-4 rounded-md"
             >
-              Contact Sales
+              Subscribe
             </button>
           </div>
         </div>
