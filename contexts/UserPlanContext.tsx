@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { checkUserUploadLimits } from '../services/firebaseStorage';
 
 interface UserPlanContextType {
   currentUploads: number;
@@ -20,34 +19,43 @@ export const UserPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isLimitReached, setIsLimitReached] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  
+
+  // Refresh the limits from the API route
   const refreshLimits = async () => {
     if (!userId) return;
-    
+
     try {
       setLoading(true);
-      const limits = await checkUserUploadLimits(userId);
-      
+
+      // Fetch the limits from the API endpoint
+      const response = await fetch(`/api/check-upload-limits?userId=${userId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch limits: ${response.statusText}`);
+      }
+
+      const limits = await response.json();
+
+      // Update the state with the limits data
       setCurrentUploads(limits.currentUploads);
       setMaxUploads(limits.maxUploads);
-      setIsLimitReached(limits.isLimitReached);
       setPlanType(limits.planType);
+      setIsLimitReached(limits.isLimitReached);
     } catch (error) {
       console.error('Failed to refresh upload limits:', error);
     } finally {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     const auth = getAuth();
-    
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
       } else {
         setUserId(null);
-        // Reset to default values when logged out
+        // Reset the plan data when logged out
         setCurrentUploads(0);
         setMaxUploads(5);
         setIsLimitReached(false);
@@ -55,16 +63,16 @@ export const UserPlanProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
       setLoading(false);
     });
-    
+
     return () => unsubscribe();
   }, []);
-  
+
   useEffect(() => {
     if (userId) {
-      refreshLimits();
+      refreshLimits();  // Refresh the limits whenever the user ID changes
     }
   }, [userId]);
-  
+
   return (
     <UserPlanContext.Provider value={{
       currentUploads,
