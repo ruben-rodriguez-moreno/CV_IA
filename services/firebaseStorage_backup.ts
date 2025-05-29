@@ -12,7 +12,10 @@ import {
   serverTimestamp,
   doc,
   deleteDoc,
-  getDoc
+  getDoc,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { auth } from '../config/firebase';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,6 +37,53 @@ interface QueueItem {
   timestamp: any;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   sharedLinkId?: string | null;
+}
+
+interface UserUploadLimits {
+  currentUploads: number;
+  maxUploads: number;
+  isLimitReached: boolean;
+  planType: 'free' | 'pro';
+}
+
+// Check user upload limits
+export const checkUserUploadLimits = async (userId: string): Promise<UserUploadLimits> => {
+  try {
+    const db = getFirestore();
+    
+    // Count current uploads for the user
+    const cvsQuery = query(
+      collection(db, 'cvs'),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(cvsQuery);
+    const currentUploads = querySnapshot.size;
+    
+    // For now, assume all users are free plan with 5 uploads limit
+    // This can be enhanced later to check user's subscription status
+    const maxUploads = 5; // Free plan limit
+    const planType: 'free' | 'pro' = 'free';
+    
+    // TODO: Add logic to check user's subscription status from Stripe/Firestore
+    // and set appropriate limits based on their plan
+    
+    return {
+      currentUploads,
+      maxUploads,
+      isLimitReached: currentUploads >= maxUploads,
+      planType
+    };
+  } catch (error) {
+    console.error('Error checking upload limits:', error);
+    // Return default values on error
+    return {
+      currentUploads: 0,
+      maxUploads: 5,
+      isLimitReached: false,
+      planType: 'free'
+    };
+  }
 }
 
 // Subir archivo (maneja usuarios registrados y sharedLinks)
@@ -109,9 +159,7 @@ export const deleteCV = async (cvId: string, filePath: string): Promise<void> =>
     // Validación reforzada: Solo el propietario puede eliminar
     if (cvData.userId !== user.uid) {
       throw new Error('No tienes permisos para eliminar este CV');
-    }
-
-    // Eliminar de Firestore y Storage
+    }    // Eliminar de Firestore y Storage
     await deleteDoc(cvRef);
     await deleteObject(ref(storage, cvData.filePath));
     

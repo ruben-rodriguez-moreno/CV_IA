@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { checkUserUploadLimits } from '../services/firebaseStorage';
+import { checkUserUploadLimits } from '../services/userLimits';
 
 interface UserPlanContextType {
   currentUploads: number;
