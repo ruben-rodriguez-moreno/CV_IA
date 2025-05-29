@@ -1,75 +1,34 @@
+// app/api/subscription/status/route.js
 import { NextResponse } from 'next/server';
 import { admin } from '../../../../config/firebase-admin';
-import { SUBSCRIPTION_PLANS } from '../../../../lib/stripe';
-import { getServerStripe } from '../../../../lib/stripe-server';
 
-export async function GET(request) {
+export async function GET(req) {
+  // 1) Chequear que venga un Bearer token
+  const auth = req.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const idToken = auth.replace('Bearer ', '');
+
   try {
-    // Get Firebase token from the Authorization header
-    const authHeader = request.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const token = authHeader.split('Bearer ')[1];
-    
-    // Verify Firebase token
-    let decodedToken;
-    try {
-      decodedToken = await admin.auth().verifyIdToken(token);
-    } catch (error) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-    
-    const userId = decodedToken.uid;
-    
-    // Get user subscription data from database
-    const userDoc = await admin.firestore()
-      .collection('users')
-      .doc(userId)
-      .get();
-    
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    const userData = userDoc.data();
-    
-    // Default to free plan if no subscription
-    let plan = SUBSCRIPTION_PLANS.FREE;
-    let usage = {
-      current: userData.cvCount || 0,
-      limit: 5,
-      history: userData.cvHistory || [],
-    };
-    
-    // If user has Stripe subscription, get details
-    if (userData.stripeSubscriptionId) {
-      const stripe = getServerStripe();
-      const subscription = await stripe.subscriptions.retrieve(userData.stripeSubscriptionId);
-      
-      if (subscription.status === 'active') {
-        // Get the plan from subscription
-        const priceId = subscription.items.data[0].price.id;
-        
-        if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
-          plan = SUBSCRIPTION_PLANS.PRO;
-          usage.limit = 100;
-        } else if (priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID) {
-          plan = SUBSCRIPTION_PLANS.ENTERPRISE;
-          usage.limit = 1000;
-        }
-      }
-    }
-    
-    return NextResponse.json({
-      plan,
-      usage,
-      billingPortalUrl: userData.stripeCustomerId ? `/api/subscription/billing-portal` : null,
-    });
-  } catch (error) {
-    console.error('Error fetching subscription status:', error);
-    return NextResponse.json({ error: 'Error fetching subscription status' }, { status: 500 });
+    // 2) Verificar el ID token y obtener los claims
+    //    verifyIdToken devuelve un objeto con uid + todos los custom claims
+    const decoded = await admin.auth().verifyIdToken(idToken);
+
+    // 3) Leer el claim
+    const active = !!decoded.subscriptionActive;
+
+    // 4) Devolver el plan
+    //    Si quieres diferenciar Pro/Enterprise, podrías ampliar
+    //    el claim (p.e. decoded.subscriptionPlan = 'pro'|'enterprise').
+    const plan = active ? 'paid' : 'free';
+
+    return NextResponse.json({ plan });
+  } catch (err) {
+    console.error('Error en /api/subscription/status:', err);
+    return NextResponse.json(
+      { error: 'Could not fetch subscription status' },
+      { status: 500 }
+    );
   }
 }

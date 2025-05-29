@@ -1,205 +1,142 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '/contexts/AuthContext';
 import { CheckIcon } from '@heroicons/react/24/outline';
 
 export default function SubscriptionPage() {
   const { currentUser } = useAuth();
-  const [currentPlan, setCurrentPlan] = useState('free');
-  const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan]       = useState('free');
+  const [isLoading, setIsLoading]                     = useState(true);
   const router = useRouter();
-  
+
   useEffect(() => {
-    async function fetchSubscriptionData() {
-      if (currentUser) {
-        try {
-          // Fetch user's subscription data from your backend
-          const response = await fetch('/api/subscription/status');
-          const data = await response.json();
-          setCurrentPlan(data.plan);
-        } catch (error) {
-          console.error("Error fetching subscription data:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
     }
-    
-    fetchSubscriptionData();
+    currentUser.getIdTokenResult()
+      .then(({ claims }) => {
+        setSubscriptionActive(!!claims.subscriptionActive);
+        if (claims.subscriptionPlan === 'pro') {
+          setSubscriptionPlan('pro');
+        } else if (claims.subscriptionPlan === 'enterprise') {
+          setSubscriptionPlan('enterprise');
+        } else {
+          setSubscriptionPlan('free');
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, [currentUser]);
-  
-  const handleSubscribe = (planId) =>
+
+  if (isLoading) {
+    return <div className="text-center py-12">Loading subscription data…</div>;
+  }
+
+  const handleSubscribe = (planId) => {
     fetch('/api/subscription/create-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planId })
+      body: JSON.stringify({ planId }),
     })
-      .then(r => r.json())
-      .then(({ url }) => window.location.href = url)
-      .catch(console.error);
+    .then(r => r.json())
+    .then(({ url }) => url && (window.location.href = url))
+    .catch(console.error);
+  };
 
-  if (isLoading) {
-    return <div className="text-center py-12">Loading subscription data...</div>;
-  }
+  const handleManage = () => {
+    currentUser.getIdToken()
+      .then(token =>
+        fetch('/api/subscription/manage', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      )
+      .then(r => r.json())
+      .then(({ url, error }) => {
+        if (error) throw new Error(error);
+        window.location.href = url;
+      })
+      .catch(console.error);
+  };
+
+  const plans = [
+    {
+      key: 'free',
+      title: 'Free Plan',
+      price: '$0',
+      interval: 'month',
+      features: ['5 CVs per month','Basic CV analysis','Standard support']
+    },
+    {
+      key: 'pro',
+      title: 'Pro Plan',
+      price: '$29',
+      interval: 'month',
+      features: ['100 CVs per month','Advanced CV analysis','Export data to CSV/PDF','Enhanced support']
+    },
+    {
+      key: 'enterprise',
+      title: 'Enterprise Plan',
+      price: '$296',
+      interval: 'year',
+      features: ['1000+ CVs per month','Premium CV analysis','Advanced data exports','Priority support','Dedicated account manager']
+    }
+  ];
 
   return (
     <div className="py-8">
-      <h1 className="text-3xl font-bold text-secondary-900 mb-8">Subscription Plans</h1>
-      <p className="mb-8 text-lg text-secondary-600">Choose the plan that best fits your needs.</p>
-      
+      <h1 className="text-3xl font-bold mb-8">Subscription Plans</h1>
       <div className="grid md:grid-cols-3 gap-8">
-        {/* Free Plan */}
-        <div className={`border rounded-lg shadow-sm overflow-hidden ${currentPlan === 'free' ? 'ring-2 ring-primary-500' : ''}`}>
-          <div className="p-6 bg-white">
-            <h2 className="text-xl font-semibold text-secondary-900">Free Plan</h2>
-            <p className="mt-4 text-secondary-600">Basic features for individuals</p>
-            <p className="mt-6">
-              <span className="text-4xl font-bold text-secondary-900">$0</span>
-              <span className="text-secondary-500">/month</span>
+        {plans.map(plan => (
+          <div
+            key={plan.key}
+            className={`border rounded-lg p-6 ${subscriptionPlan === plan.key ? 'ring-2 ring-primary-500' : ''}`}
+          >
+            <h2 className="text-xl font-semibold">{plan.title}</h2>
+            <p className="mt-4">
+              <span className="text-4xl font-bold">{plan.price}</span>
+              <span className="text-secondary-500">/{plan.interval}</span>
             </p>
-            
             <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">5 CVs per month</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Basic CV analysis</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Standard support</span>
-              </li>
+              {plan.features.map(feature => (
+                <li key={feature} className="flex items-start">
+                  <CheckIcon className="h-5 w-5 text-green-500 mr-2" />
+                  <span className="text-secondary-600">{feature}</span>
+                </li>
+              ))}
             </ul>
-            
             <button
-              className={`mt-8 w-full py-2 px-4 rounded-md ${
-                currentPlan === 'free' ? 'bg-secondary-200 text-secondary-800' : 'bg-primary-600 text-white hover:bg-primary-700'
+              onClick={() => handleSubscribe(plan.key)}
+              disabled={subscriptionPlan === plan.key}
+              className={`mt-6 w-full py-2 rounded-md ${
+                subscriptionPlan === plan.key
+                  ? 'bg-secondary-200 text-secondary-800'
+                  : 'bg-primary-600 text-white hover:bg-primary-700'
               }`}
-              disabled={currentPlan === 'free'}
             >
-              {currentPlan === 'free' ? 'Current Plan' : 'Select Plan'}
+              {subscriptionPlan === plan.key
+                ? 'Current Plan'
+                : plan.key === 'free'
+                  ? 'Select Plan'
+                  : 'Subscribe'}
             </button>
+
+            {/* Solo para Enterprise mostramos el Manage si está activo */}
+            {plan.key === 'enterprise' && subscriptionActive && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={handleManage}
+                  className="px-6 py-2 border rounded-md hover:bg-secondary-100"
+                >
+                  Manage Subscription
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-        
-        {/* Pro Plan */}
-        <div className={`border rounded-lg shadow-sm overflow-hidden ${currentPlan === 'pro' ? 'ring-2 ring-primary-500' : ''}`}>
-          <div className="p-6 bg-white">
-            <h2 className="text-xl font-semibold text-secondary-900">Pro Plan</h2>
-            <p className="mt-4 text-secondary-600">Advanced features for professionals</p>
-            <p className="mt-6">
-              <span className="text-4xl font-bold text-secondary-900">$29</span>
-              <span className="text-secondary-500">/month</span>
-            </p>
-            
-            <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">100 CVs per month</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Advanced CV analysis</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Export data to CSV/PDF</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Enhanced support</span>
-              </li>
-            </ul>
-            
-            <button
-              onClick={() => currentPlan !== 'pro' && handleSubscribe('pro')}
-              className="mt-8 w-full py-2 px-4 rounded-md bg-primary-600 text-white hover:bg-primary-700"
-              disabled={currentPlan === 'pro'}
-            >
-              {currentPlan === 'pro' ? 'Current Plan' : 'Subscribe'}
-            </button>
-          </div>
-        </div>
-        
-        {/* Enterprise Plan */}
-        <div className={`border rounded-lg shadow-sm overflow-hidden ${currentPlan === 'enterprise' ? 'ring-2 ring-primary-500' : ''}`}>
-          <div className="p-6 bg-white">
-            <h2 className="text-xl font-semibold text-secondary-900">Enterprise Plan</h2>
-            <p className="mt-4 text-secondary-600">Complete solution for businesses</p>
-            <p className="mt-6">
-              <span className="text-4xl font-bold text-secondary-900">296</span>
-              <span className="text-secondary-500">/year</span>
-            </p>
-            
-            <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">1000+ CVs per month</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Premium CV analysis</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Advanced data exports</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Priority support</span>
-              </li>
-              <li className="flex items-start">
-                <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-secondary-600">Dedicated account manager</span>
-              </li>
-            </ul>
-            
-            <button
-              onClick={() => handleSubscribe('enterprise')}
-              className="mt-8 w-full bg-primary-600 text-white hover:bg-primary-700 py-2 px-4 rounded-md"
-            >
-              Subscribe
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold text-secondary-900 mb-4">Current Usage</h2>
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-medium text-secondary-900">CV Usage</h3>
-            <p className="text-secondary-600">Monthly usage statistics for your account</p>
-          </div>
-          
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-secondary-700">
-                CVs Used This Month
-              </span>
-              <span className="text-sm font-medium text-secondary-900">
-                {/* This will be dynamically loaded */}
-                3 / 5
-              </span>
-            </div>
-            <div className="w-full bg-secondary-200 rounded-full h-2.5">
-              <div className="bg-primary-600 h-2.5 rounded-full" style={{ width: '60%' }}></div>
-            </div>
-          </div>
-          
-          <div className="mt-8">
-            <button
-              onClick={() => router.push('/dashboard/usage')}
-              className="text-primary-600 hover:text-primary-800 font-medium"
-            >
-              View detailed usage statistics →
-            </button>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

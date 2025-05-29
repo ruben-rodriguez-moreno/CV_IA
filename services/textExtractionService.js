@@ -1,7 +1,11 @@
-import { getDownloadURL } from 'firebase/storage';
-import { backOff } from 'exponential-backoff';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 
+/**
+ * Actualiza el estado de un análisis y, opcionalmente, guarda el texto extraído
+ * @param {string} docId - El ID del documento en Firestore
+ * @param {string} status - El nuevo estado del análisis ('processing', 'completed', 'failed')
+ * @param {string} [extractedText=null] - El texto extraído del archivo (opcional)
+ */
 async function updateAnalysisStatus(docId, status, extractedText = null) {
   const db = getFirestore();
   const docRef = doc(db, 'cvs', docId);
@@ -13,10 +17,11 @@ async function updateAnalysisStatus(docId, status, extractedText = null) {
 
   await updateDoc(docRef, updateData);
 }
+
 /**
- * Extract text from a PDF or DOCX file using a serverless function
- * @param {string} fileUrl - URL to the file
- * @returns {Promise<string>} - Extracted text
+ * Extrae el texto de un archivo y actualiza el estado del análisis.
+ * @param {string} fileUrl - URL del archivo (PDF o DOCX)
+ * @param {string} docId - ID del documento en Firestore
  */
 export async function extractTextAndUpdateStatus(fileUrl, docId) {
   try {
@@ -29,7 +34,7 @@ export async function extractTextAndUpdateStatus(fileUrl, docId) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ fileUrl }),
+      body: JSON.stringify({ fileUrl, jobId: docId }),  // Asegúrate de pasar el jobId
     });
 
     if (!response.ok) {

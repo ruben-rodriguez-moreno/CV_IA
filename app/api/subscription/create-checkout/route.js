@@ -4,11 +4,10 @@ import { getCheckoutUrl } from '../../../../controller/subscriptionController.js
 
 export async function POST(req) {
   try {
-    const { planId } = await req.json()
-    const url = getCheckoutUrl(planId)
-    return NextResponse.json({ url })
+    const { planId } = await req.json();
+    const url = getCheckoutUrl(planId);
+    return NextResponse.json({ url });
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: err.message }, { status: 400 })
+    return NextResponse.json({ error: err.message }, { status: 400 });
   }
 }
