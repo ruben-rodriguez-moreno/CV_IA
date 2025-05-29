@@ -562,7 +562,7 @@ export default function Results() {
                       <span className="text-2xl mr-3">🤖</span>
                       <div>
                         <p className="text-sm text-blue-800 font-medium">
-                          Análisis de IA generado: {formatDate(selectedCv.analysis.analyzedAt)}
+                          Análisis de IA generado
                         </p>
                         {selectedCv.analysis.score && (
                           <p className="text-sm text-blue-600">
