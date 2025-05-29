@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useParams } from 'next/navigation'; 
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../config/firebase-browser';
@@ -11,7 +12,7 @@ import * as pdfjs from 'pdfjs-dist';
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 export default function SharedUploadPage({ params }) {
-  const { linkId } = params;
+  const { linkId } = useParams();
   const [linkDetails, setLinkDetails] = useState(null);
   const [linkError, setLinkError] = useState(null);
   const [linkLoading, setLinkLoading] = useState(true);
@@ -28,15 +29,15 @@ export default function SharedUploadPage({ params }) {
   useEffect(() => {
     async function fetchLinkDetails() {
       setLinkLoading(true);
-      
+
       try {
         const linkDoc = await getDoc(doc(db, 'sharedLinks', linkId));
-        
+
         if (!linkDoc.exists()) {
           setLinkError('Este enlace de carga no existe o ha sido eliminado.');
         } else {
           const data = linkDoc.data();
-          
+
           if (!data.active) {
             setLinkError('Este enlace de carga ya no está activo.');
           } else {
@@ -53,7 +54,7 @@ export default function SharedUploadPage({ params }) {
         setLinkLoading(false);
       }
     }
-    
+
     fetchLinkDetails();
   }, [linkId]);
   
