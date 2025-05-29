@@ -14,7 +14,6 @@ async function updateAnalysisStatus(docId, status, extractedText = null) {
   if (extractedText) {
     updateData.extractedText = extractedText;
   }
-
   await updateDoc(docRef, updateData);
 }
 
@@ -29,22 +28,25 @@ export async function extractTextAndUpdateStatus(fileUrl, docId) {
     await updateAnalysisStatus(docId, 'processing');
 
     // Llama a la API para extraer el texto
+    // The API will handle both text extraction and AI analysis automatically
     const response = await fetch('/api/extract-text', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ fileUrl, jobId: docId }),  // Asegúrate de pasar el jobId
+      body: JSON.stringify({ fileUrl, jobId: docId }),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to extract text: ${response.statusText}`);
     }
-
+    
     const { text } = await response.json();
-
-    // Cambia el estado a "completed" y guarda el texto extraído
-    await updateAnalysisStatus(docId, 'completed', text);
+    console.log('Text extraction completed successfully. AI analysis triggered automatically.');
+    
+    // Note: The API now handles both text extraction and AI analysis
+    // No need to manually trigger AI analysis here
+    
   } catch (error) {
     console.error('Error during text extraction:', error);
 
