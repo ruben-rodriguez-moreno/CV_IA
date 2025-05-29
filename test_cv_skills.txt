@@ -1,0 +1,43 @@
+CURRICULUM VITAE
+
+Juan Pérez García
+Desarrollador Full Stack
+Email: juan.perez@email.com
+Teléfono: +34 123 456 789
+Edad: 28 años
+
+HABILIDADES TÉCNICAS:
+- JavaScript, TypeScript, Python
+- React, Vue.js, Angular
+- Node.js, Express.js, Django
+- PostgreSQL, MongoDB, MySQL
+- Docker, Kubernetes, AWS
+- Git, GitHub, GitLab
+- HTML5, CSS3, SASS
+- Redux, Vuex, MobX
+
+EXPERIENCIA LABORAL:
+
+Tech Solutions S.L. | Desarrollador Senior | 2022-2024
+• Desarrollo de aplicaciones web con React y Node.js
+• Implementación de APIs REST y GraphQL
+• Gestión de bases de datos PostgreSQL
+• Trabajo en metodologías ágiles (Scrum)
+
+Digital Innovations | Desarrollador Junior | 2020-2022
+• Desarrollo frontend con Vue.js y Angular
+• Integración con APIs externas
+• Mantenimiento de aplicaciones legacy
+• Colaboración en equipo multidisciplinario
+
+EDUCACIÓN:
+
+Universidad Politécnica de Madrid | Ingeniería Informática | 2016-2020
+• Especialización en Desarrollo de Software
+• Proyecto Final: Sistema de gestión empresarial
+• Nota media: 8.5/10
+
+IDIOMAS:
+• Español (nativo)
+• Inglés (avanzado - C1)
+• Francés (intermedio - B2)

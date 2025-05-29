@@ -5,8 +5,7 @@ const nextConfig = {
   transpilePackages: ['@firebase/auth'],
   images: {
     domains: ['firebasestorage.googleapis.com'],
-  },
-  webpack: (config, { isServer }) => {
+  },  webpack: (config, { isServer }) => {
     // Solo aplica estos cambios al bundle del cliente (no al servidor)
     if (!isServer) {
       // Establecer los fallbacks apropiados para los módulos de Node.js
@@ -34,10 +33,21 @@ const nextConfig = {
         crypto: false,
       };
       
-      // Desactivar 'undici'
+      // Configurar alias para manejar imports con 'node:' prefix
       config.resolve.alias = {
         ...config.resolve.alias,
         undici: false,
+        'node:events': require.resolve('events'),
+        'node:stream': require.resolve('stream-browserify'),
+        'node:buffer': require.resolve('buffer'),
+        'node:process': require.resolve('process/browser'),
+        'node:fs': false,
+        'node:path': false,
+        'node:os': false,
+        'node:crypto': false,
+        'node:util': false,
+        'node:url': false,
+        'node:querystring': false,
       };
     }
 
