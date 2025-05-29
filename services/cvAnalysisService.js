@@ -116,6 +116,29 @@ export async function extractCvInformation(cvText, token) {
 /**
  * Función de caché mejorada
  */
+export async function getCachedAnalysis(cacheKey) {
+  try {
+    const cacheDoc = await getDoc(doc(db, 'cvAnalysisCache', cacheKey));
+    
+    if (!cacheDoc.exists()) return null;
+    
+    const cachedData = cacheDoc.data();
+    const expiresAt = new Date(cachedData.expiresAt);
+    
+    // Verificar si el caché ha expirado
+    if (expiresAt < new Date()) {
+      // Eliminar caché expirado
+      await deleteDoc(doc(db, 'cvAnalysisCache', cacheKey));
+      return null;
+    }
+    
+    return cachedData;
+  } catch (error) {
+    console.error('Error retrieving cache:', error);
+    return null;
+  }
+}
+
 export async function cacheAnalysisResult(fileId, userId, analysisResult) {
   try {
     await setDoc(doc(db, 'cvAnalysisCache', fileId), {
