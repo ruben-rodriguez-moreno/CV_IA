@@ -1,6 +1,5 @@
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { calculateJobMatch } from './cvAnalysisService';
 
 /**
  * Search for CVs with filters
@@ -138,22 +137,8 @@ async function filterResults(results, filters) {
           skill.toLowerCase().includes(keyword.toLowerCase())
         )
       );
-      
-      // Calculate percentage of matching skills
+        // Calculate percentage of matching skills
       matchScore = (matchingSkills.length / filters.keywords.length) * 100;
-      
-      // Use embedding for more sophisticated matching if available
-      if (cv.analysis.embeddings && jobDescription) {
-        try {
-          const similarityScore = await calculateJobMatch(jobDescription, cv.analysis.embeddings);
-          if (similarityScore !== null) {
-            // Blend the scores (70% keyword match, 30% semantic similarity)
-            matchScore = 0.7 * matchScore + 0.3 * (similarityScore * 100);
-          }
-        } catch (error) {
-          console.error('Error calculating similarity:', error);
-        }
-      }
       
       // If no skills match at all, this result doesn't qualify
       if (matchingSkills.length === 0) {
