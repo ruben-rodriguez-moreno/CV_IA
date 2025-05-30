@@ -37,7 +37,7 @@ function cleanSkillsArray(skills) {
  * @param {string} extractedText - The extracted text from the CV
  * @param {string} docId - ID del documento en Firestore
  */
-async function triggerAIAnalysis(extractedText, docId) {
+export async function triggerAIAnalysis(extractedText, docId) {
   try {
     console.log(`[AI_TRIGGER] Starting AI analysis for CV: ${docId}`)
     
@@ -227,18 +227,37 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { fileUrl, jobId } = req.body
+  // Handle trigger AI analysis request
+  if (req.body.triggerAI && req.body.cvId && req.body.extractedText) {
+    try {
+      await triggerAIAnalysis(req.body.extractedText, req.body.cvId);
+      return res.status(200).json({ 
+        message: 'AI analysis triggered successfully',
+        cvId: req.body.cvId 
+      });
+    } catch (error) {
+      console.error('Error triggering AI analysis:', error);
+      return res.status(500).json({ 
+        error: 'Failed to trigger AI analysis', 
+        details: error.message 
+      });
+    }
+  }
+
+  // Handle regular text extraction
+  const { fileUrl, jobId, textOnly = false } = req.body
   if (!fileUrl || !jobId) {
     return res.status(400).json({ error: 'Missing fileUrl or jobId' })
   }
+  
   try {
-    // 1) Extrae el PDF
+    // 1) Extract the PDF text
     const response = await fetch(fileUrl)
     if (!response.ok) throw new Error(`Failed to fetch file: ${response.statusText}`)
     const buffer = Buffer.from(await response.arrayBuffer())
     const data = await pdfParse(buffer)
 
-    // 2) Guarda resultado en Firebase Storage usando Admin SDK
+    // 2) Save result in Firebase Storage using Admin SDK
     const bucket = admin.storage().bucket()
     const fileName = `cv-data/analisis/${jobId}.json`
     const file = bucket.file(fileName)
@@ -249,12 +268,13 @@ export default async function handler(req, res) {
       },
     })
 
-    // 3) Guarda estado del job en Firebase Storage
+    // 3) Save job status in Firebase Storage
     const jobStatusData = {
       jobId,
-      status: 'completed',
+      status: textOnly ? 'text_extracted' : 'completed',
       updatedAt: new Date().toISOString(),
-      extractedText: data.text
+      extractedText: data.text,
+      textOnly: textOnly || false
     }
     
     const statusFileName = `cv-data/jobStatus/${jobId}.json`
@@ -266,31 +286,42 @@ export default async function handler(req, res) {
       },
     })
 
-    // 4) También guardamos en Firestore para consultas rápidas
+    // 4) Update Firestore with extracted text and appropriate status
     const db = admin.firestore()
-    await db.collection('jobStatus').doc(jobId).set({
-      ...jobStatusData,      jsonFileUrl: `gs://${bucket.name}/${fileName}`,
+    const cvRef = db.collection('cvs').doc(jobId)
+    
+    await cvRef.update({
+      status: textOnly ? 'text_extracted' : 'processing',
+      extractedText: data.text,
+      textExtractionCompleted: admin.firestore.FieldValue.serverTimestamp(),
+      analysisType: textOnly ? 'text_only' : 'ai_analysis',
+      jsonFileUrl: `gs://${bucket.name}/${fileName}`,
       statusFileUrl: `gs://${bucket.name}/${statusFileName}`,
       lastUpdated: admin.firestore.FieldValue.serverTimestamp()
     })
 
-    console.log(`CV analysis saved to Firebase: ${fileName}`)
+    console.log(`CV text extraction ${textOnly ? '(text-only)' : '(with AI analysis)'} saved to Firebase: ${fileName}`)
 
-    // 5) Trigger AI analysis after successful text extraction
-    await triggerAIAnalysis(data.text, jobId)
+    // 5) Only trigger AI analysis if not text-only mode
+    if (!textOnly) {
+      await triggerAIAnalysis(data.text, jobId)
+    } else {
+      console.log(`Text-only extraction completed for CV: ${jobId}`)
+    }
 
-    // 6) Devuelve el texto extraído
-    return res.status(200).json({ text: data.text })
+    // 6) Return the extracted text
+    return res.status(200).json({ text: data.text, textOnly })
   } catch (error) {
     console.error('Error extracting text:', error)
 
-    // Marca como FAILED usando Firebase Admin
+    // Mark as FAILED using Firebase Admin
     try {
       const jobStatusData = {
         jobId,
         status: 'failed',
         updatedAt: new Date().toISOString(),
-        error: error.message
+        error: error.message,
+        textOnly: textOnly || false
       }
       
       const bucket = admin.storage().bucket()
@@ -303,11 +334,18 @@ export default async function handler(req, res) {
         },
       })
 
-      // También actualizamos Firestore
+      // Also update Firestore
       const db = admin.firestore()
       await db.collection('jobStatus').doc(jobId).set({
         ...jobStatusData,
         statusFileUrl: `gs://${bucket.name}/${statusFileName}`,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      })
+      
+      // Update CV document status
+      await db.collection('cvs').doc(jobId).update({
+        status: 'failed',
+        error: error.message,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       })
     } catch (e) {

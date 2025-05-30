@@ -144,17 +144,40 @@ export default function SharedUploadPage({ params }) {
           // Handle successful uploads
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            
-            // Store file metadata in Firestore with initial pending status
-            await addDoc(collection(db, 'cvs'), {
+              // Store file metadata in Firestore with initial pending status
+            const cvDoc = await addDoc(collection(db, 'cvs'), {
               fileName: file.name,
               fileUrl: downloadURL,
               filePath: `cvs/shared/${linkId}/${fileName}`,
               uploadDate: serverTimestamp(),
               fromSharedLink: true,
               sharedLinkId: linkId,
-              creatorId: linkDetails.creatorId // The person who created the shared link
+              sharedLinkName: linkDetails.description,
+              creatorId: linkDetails.creatorId, // The person who created the shared link
+              status: 'pending', // Will be updated to 'text_extracted' after text extraction
+              analysisType: 'text_only' // Indicates text-only extraction, no AI analysis
             });
+
+            // Extract text for search purposes (without AI analysis)
+            try {
+              const extractResponse = await fetch('/api/extract-text', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                  fileUrl: downloadURL, 
+                  jobId: cvDoc.id,
+                  textOnly: true // Flag to indicate text-only extraction
+                }),
+              });
+              
+              if (!extractResponse.ok) {
+                console.warn('Text extraction failed, but upload succeeded');
+              }
+            } catch (extractError) {
+              console.warn('Text extraction failed, but upload succeeded:', extractError);
+            }
             
             // Show success message
             setUploadSuccess(true);

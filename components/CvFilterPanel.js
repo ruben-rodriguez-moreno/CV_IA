@@ -8,31 +8,45 @@ const CvFilterPanel = ({ onSearch, availableSkills = [], isLoading = false }) =>
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [filters, setFilters] = useState({
+  const [selectedTags, setSelectedTags] = useState([]);  const [filters, setFilters] = useState({
     experienceYears: '',
     educationLevel: '',
     location: '',
+    sourceType: '',
+    analysisType: '',
   });
   const { currentUser } = useAuth();
   const searchInputRef = useRef(null);
-
   // Education level options
   const educationLevels = [
-    { id: 'high-school', name: 'High School' },
-    { id: 'associate', name: 'Associate Degree' },
-    { id: 'bachelor', name: 'Bachelor\'s Degree' },
-    { id: 'master', name: 'Master\'s Degree' },
-    { id: 'phd', name: 'PhD' },
+    { id: 'high-school', name: 'High School / Bachillerato' },
+    { id: 'associate', name: 'Associate / Técnico' },
+    { id: 'bachelor', name: 'Bachelor\'s / Licenciatura' },
+    { id: 'master', name: 'Master\'s / Maestría' },
+    { id: 'phd', name: 'PhD / Doctorado' },
   ];
 
   // Years of experience options
   const experienceRanges = [
-    { id: '0-1', name: 'Less than 1 year' },
-    { id: '1-3', name: '1-3 years' },
-    { id: '3-5', name: '3-5 years' },
-    { id: '5-10', name: '5-10 years' },
-    { id: '10+', name: 'More than 10 years' },
+    { id: '0-1', name: 'Entry level (0-1 years)' },
+    { id: '1-3', name: 'Junior (1-3 years)' },
+    { id: '3-5', name: 'Mid-level (3-5 years)' },
+    { id: '5-10', name: 'Senior (5-10 years)' },
+    { id: '10+', name: 'Expert (10+ years)' },
+  ];
+
+  // CV Source options
+  const sourceTypes = [
+    { id: 'all', name: 'All CVs' },
+    { id: 'direct', name: 'Direct uploads only' },
+    { id: 'shared', name: 'Shared link uploads only' },
+  ];
+
+  // Analysis status options
+  const analysisTypes = [
+    { id: 'all', name: 'All statuses' },
+    { id: 'ai_analysis', name: 'AI analyzed' },
+    { id: 'text_only', name: 'Text only' },
   ];
 
   // Handle search input changes and provide suggestions
@@ -76,17 +90,17 @@ const CvFilterPanel = ({ onSearch, availableSkills = [], isLoading = false }) =>
       [name]: value
     });
   };
-
   // Handle search submission
   const handleSearch = () => {
     onSearch({
       keywords: selectedTags.map(tag => tag.toLowerCase()), // Normalizar a minúsculas
       experienceYears: filters.experienceYears,
       educationLevel: filters.educationLevel,
-      location: filters.location.toLowerCase() // Normalizar ubicación
+      location: filters.location.toLowerCase(), // Normalizar ubicación
+      sourceType: filters.sourceType,
+      analysisType: filters.analysisType,
     });
   };
-
   // Clear all filters and tags
   const clearAll = () => {
     setSelectedTags([]);
@@ -94,6 +108,8 @@ const CvFilterPanel = ({ onSearch, availableSkills = [], isLoading = false }) =>
       experienceYears: '',
       educationLevel: '',
       location: '',
+      sourceType: '',
+      analysisType: '',
     });
     setSearchTerm('');
   };
@@ -160,63 +176,104 @@ const CvFilterPanel = ({ onSearch, availableSkills = [], isLoading = false }) =>
             </div>
           )}
         </div>
-        
-        {/* Additional filters - conditional display */}
+          {/* Additional filters - conditional display */}
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-secondary-200">
-            {/* Experience Years Filter */}
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-1">
-                Years of Experience
-              </label>
-              <select
-                name="experienceYears"
-                value={filters.experienceYears}
-                onChange={handleFilterChange}
-                className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">Any experience</option>
-                {experienceRanges.map((range) => (
-                  <option key={range.id} value={range.id}>
-                    {range.name}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-4 pt-4 border-t border-secondary-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Experience Years Filter */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Years of Experience
+                </label>
+                <select
+                  name="experienceYears"
+                  value={filters.experienceYears}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Any experience</option>
+                  {experienceRanges.map((range) => (
+                    <option key={range.id} value={range.id}>
+                      {range.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Education Level Filter */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Education Level
+                </label>
+                <select
+                  name="educationLevel"
+                  value={filters.educationLevel}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Any education</option>
+                  {educationLevels.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Location Filter */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={filters.location}
+                  onChange={handleFilterChange}
+                  placeholder="City, country, etc."
+                  className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
             </div>
-            
-            {/* Education Level Filter */}
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-1">
-                Education Level
-              </label>
-              <select
-                name="educationLevel"
-                value={filters.educationLevel}
-                onChange={handleFilterChange}
-                className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">Any education</option>
-                {educationLevels.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {level.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Location Filter */}
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-1">
-                Location
-              </label>
-              <input
-                type="text"
-                name="location"
-                value={filters.location}
-                onChange={handleFilterChange}
-                placeholder="Any location"
-                className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Source Type Filter */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  CV Source
+                </label>
+                <select
+                  name="sourceType"
+                  value={filters.sourceType}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  {sourceTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Analysis Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Analysis Status
+                </label>
+                <select
+                  name="analysisType"
+                  value={filters.analysisType}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border border-secondary-300 p-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  {analysisTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         )}

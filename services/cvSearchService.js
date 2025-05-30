@@ -2,8 +2,8 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '../lib/firebase/config';
 
 /**
- * Search for CVs with filters
- * @param {string} userId - User ID
+ * Search for CVs with filters (includes both AI-analyzed and shared link CVs)
+ * @param {string} userId - User ID (creator ID for shared link CVs)
  * @param {Object} filters - Search filters
  * @param {Array} filters.keywords - Keywords to search for
  * @param {string} filters.experienceYears - Years of experience filter
@@ -13,46 +13,86 @@ import { db } from '../lib/firebase/config';
  */
 export async function searchCvs(userId, filters) {
   try {
-    let q = query(
+    // Query for both direct uploads and shared link uploads
+    let q1 = query(
       collection(db, 'cvs'),
-      where('userId', '==', userId)
+      where('userId', '==', userId) // Direct uploads
     );
 
-    // Filtros directos en Firestore
-    if (filters.keywords?.length > 0) {
-      q = query(q, where('analysis.skills', 'array-contains-any', filters.keywords));
-    }
+    let q2 = query(
+      collection(db, 'cvs'),
+      where('creatorId', '==', userId) // Shared link uploads
+    );
 
-    if (filters.experienceYears) {
-      const [minExp, maxExp] = parseExperienceRange(filters.experienceYears);
-      q = query(q, where('analysis.experienceLevel', '>=', minExp));
-      q = query(q, where('analysis.experienceLevel', '<=', maxExp));
-    }
+    // Execute both queries
+    const [directSnapshot, sharedSnapshot] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2)
+    ]);
 
-    const querySnapshot = await getDocs(q);
+    // Combine results and remove duplicates
+    const allDocs = new Map();
     
-    let results = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      matchScore: calculateBasicMatchScore(doc.data(), filters)
-    }));
+    directSnapshot.docs.forEach(doc => {
+      allDocs.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    
+    sharedSnapshot.docs.forEach(doc => {
+      allDocs.set(doc.id, { id: doc.id, ...doc.data() });
+    });
 
-    // Filtros adicionales en memoria
+    let results = Array.from(allDocs.values());    // Apply filters in memory
     results = results.filter(cv => {
       let isMatch = true;
       
-      // Filtro de educación
-      if (filters.educationLevel && !checkEducationLevel(cv.analysis?.education, filters.educationLevel)) {
-        isMatch = false;
+      // Source type filter
+      if (filters.sourceType && filters.sourceType !== 'all') {
+        if (filters.sourceType === 'direct' && cv.fromSharedLink) {
+          isMatch = false;
+        } else if (filters.sourceType === 'shared' && !cv.fromSharedLink) {
+          isMatch = false;
+        }
       }
       
-      // Filtro de ubicación
-      if (filters.location && !checkLocationMatch(cv.analysis, filters.location)) {
-        isMatch = false;
+      // Analysis type filter
+      if (filters.analysisType && filters.analysisType !== 'all') {
+        if (filters.analysisType !== cv.analysisType) {
+          isMatch = false;
+        }
+      }
+      
+      // Text-based keyword search for all CVs (AI-analyzed and text-only)
+      if (filters.keywords?.length > 0 && isMatch) {
+        const keywordMatch = checkKeywordMatch(cv, filters.keywords);
+        if (!keywordMatch) isMatch = false;
+      }
+      
+      // AI-analysis based filters (only for CVs with analysis)
+      if (cv.analysis && isMatch) {
+        // Experience years filter
+        if (filters.experienceYears && !checkExperienceMatch(cv.analysis, filters.experienceYears)) {
+          isMatch = false;
+        }
+        
+        // Education level filter
+        if (filters.educationLevel && !checkEducationLevel(cv.analysis.education, filters.educationLevel)) {
+          isMatch = false;
+        }
+        
+        // Location filter
+        if (filters.location && !checkLocationMatch(cv.analysis, filters.location)) {
+          isMatch = false;
+        }
       }
 
       return isMatch;
     });
+
+    // Calculate match scores and sort
+    results = results.map(cv => ({
+      ...cv,
+      matchScore: calculateMatchScore(cv, filters)
+    }));
 
     return results.sort((a, b) => b.matchScore - a.matchScore);
   } catch (error) {
@@ -61,28 +101,221 @@ export async function searchCvs(userId, filters) {
   }
 }
 
-// Función auxiliar para calcular coincidencia básica
-function calculateBasicMatchScore(cvData, filters) {
-  let score = 0;
+/**
+ * Check if CV matches keyword search (searches in both AI analysis and extracted text)
+ * @param {Object} cv - CV document
+ * @param {Array} keywords - Keywords to search for
+ * @returns {boolean} - Whether keywords match
+ */
+function checkKeywordMatch(cv, keywords) {
+  if (!keywords || keywords.length === 0) return true;
   
-  // Coincidencia de habilidades
-  if (filters.keywords?.length > 0 && cvData.analysis?.skills) {
-    const matchedSkills = cvData.analysis.skills.filter(skill =>
-      filters.keywords.includes(skill.toLowerCase())
-    ).length;
-    
-    score += (matchedSkills / filters.keywords.length) * 100;
+  let searchText = '';
+  
+  // Add filename for search
+  if (cv.fileName) {
+    searchText += cv.fileName + ' ';
   }
-
-  // Coincidencia de experiencia
-  if (filters.experienceYears) {
-    const [minExp] = parseExperienceRange(filters.experienceYears);
-    if (cvData.analysis?.experienceLevel >= minExp) {
-      score += 25;
+  
+  // Add AI analysis text if available
+  if (cv.analysis) {
+    // Add summary
+    if (cv.analysis.summary) {
+      searchText += cv.analysis.summary + ' ';
+    }
+    
+    // Add skills
+    if (cv.analysis.skills && Array.isArray(cv.analysis.skills)) {
+      searchText += cv.analysis.skills.join(' ') + ' ';
+    }
+    
+    // Add experience descriptions
+    if (cv.analysis.experience && Array.isArray(cv.analysis.experience)) {
+      cv.analysis.experience.forEach(exp => {
+        searchText += (exp.descripcion || exp.description || '') + ' ';
+        searchText += (exp.empresa || exp.company || '') + ' ';
+        searchText += (exp.puesto || exp.position || '') + ' ';
+      });
+    }
+    
+    // Add education info
+    if (cv.analysis.education && Array.isArray(cv.analysis.education)) {
+      cv.analysis.education.forEach(edu => {
+        searchText += (edu.institucion || edu.institution || '') + ' ';
+        searchText += (edu.titulo || edu.degree || '') + ' ';
+        searchText += (edu.descripcion || edu.description || '') + ' ';
+      });
+    }
+    
+    // Add languages
+    if (cv.analysis.idiomas && Array.isArray(cv.analysis.idiomas)) {
+      searchText += cv.analysis.idiomas.join(' ') + ' ';
     }
   }
+  
+  // Add extracted text for text-only CVs or as fallback
+  if (cv.extractedText) {
+    searchText += cv.extractedText + ' ';
+  }
+  
+  // Convert to lowercase for case-insensitive search
+  searchText = searchText.toLowerCase();
+  
+  // Check if ALL keywords match (AND logic) for better precision
+  const matchedKeywords = keywords.filter(keyword => 
+    searchText.includes(keyword.toLowerCase())
+  );
+  
+  // Return true if at least 70% of keywords match, or if there's only 1-2 keywords, all must match
+  const threshold = keywords.length <= 2 ? keywords.length : Math.ceil(keywords.length * 0.7);
+  return matchedKeywords.length >= threshold;
+}
 
-  return Math.min(score, 100);
+/**
+ * Calculate match score for CV based on filters
+ * @param {Object} cv - CV document
+ * @param {Object} filters - Search filters
+ * @returns {number} - Match score (0-100)
+ */
+function calculateMatchScore(cv, filters) {
+  let score = 0;
+  let maxPossibleScore = 0;
+  
+  // Base score for all CVs
+  maxPossibleScore += 10;
+  score += 10;
+  
+  // Boost score for shared link CVs to show their origin
+  if (cv.fromSharedLink) {
+    maxPossibleScore += 5;
+    score += 5;
+  }
+  
+  // Keyword matching score
+  if (filters.keywords?.length > 0) {
+    maxPossibleScore += 50;
+    const keywordScore = calculateKeywordScore(cv, filters.keywords);
+    score += keywordScore;
+  }
+  
+  // AI analysis-based scoring (only if analysis exists)
+  if (cv.analysis) {
+    maxPossibleScore += 10; // Bonus for having AI analysis
+    score += 10;
+    
+    // Skills matching score
+    if (filters.keywords?.length > 0 && cv.analysis.skills) {
+      maxPossibleScore += 25;
+      const matchedSkills = cv.analysis.skills.filter(skill =>
+        filters.keywords.some(keyword => 
+          skill.toLowerCase().includes(keyword.toLowerCase())
+        )
+      ).length;
+      const skillsScore = Math.min((matchedSkills / filters.keywords.length) * 25, 25);
+      score += skillsScore;
+    }
+    
+    // Experience matching score
+    if (filters.experienceYears) {
+      maxPossibleScore += 15;
+      if (checkExperienceMatch(cv.analysis, filters.experienceYears)) {
+        score += 15;
+      }
+    }
+    
+    // Education matching score
+    if (filters.educationLevel) {
+      maxPossibleScore += 10;
+      if (checkEducationLevel(cv.analysis.education, filters.educationLevel)) {
+        score += 10;
+      }
+    }
+    
+    // Location matching score
+    if (filters.location) {
+      maxPossibleScore += 10;
+      if (checkLocationMatch(cv.analysis, filters.location)) {
+        score += 10;
+      }
+    }
+  } else if (cv.analysisType === 'text_only') {
+    // Text-only CVs get partial score
+    maxPossibleScore += 5;
+    score += 5;
+  }
+  
+  return maxPossibleScore > 0 ? Math.min((score / maxPossibleScore) * 100, 100) : 50;
+}
+
+/**
+ * Calculate keyword matching score based on text content
+ * @param {Object} cv - CV document
+ * @param {Array} keywords - Keywords to search for
+ * @returns {number} - Keyword score (0-50)
+ */
+function calculateKeywordScore(cv, keywords) {
+  if (!keywords || keywords.length === 0) return 0;
+  
+  let searchText = '';
+  
+  // Gather all searchable text
+  if (cv.analysis) {
+    if (cv.analysis.skills) searchText += cv.analysis.skills.join(' ') + ' ';
+    if (cv.analysis.summary) searchText += cv.analysis.summary + ' ';
+    if (cv.analysis.experience) {
+      cv.analysis.experience.forEach(exp => {
+        searchText += (exp.descripcion || exp.description || '') + ' ';
+        searchText += (exp.empresa || exp.company || '') + ' ';
+        searchText += (exp.puesto || exp.position || '') + ' ';
+      });
+    }
+  }
+  
+  if (cv.extractedText) {
+    searchText += cv.extractedText + ' ';
+  }
+  
+  if (cv.fileName) {
+    searchText += cv.fileName + ' ';
+  }
+  
+  searchText = searchText.toLowerCase();
+  
+  // Count keyword matches
+  let matchedKeywords = 0;
+  let totalMatches = 0;
+  
+  keywords.forEach(keyword => {
+    const keywordLower = keyword.toLowerCase();
+    const matches = (searchText.match(new RegExp(keywordLower, 'g')) || []).length;
+    if (matches > 0) {
+      matchedKeywords++;
+      totalMatches += matches;
+    }
+  });
+  
+  // Calculate score based on:
+  // - Percentage of keywords that match (primary factor)
+  // - Frequency of matches (secondary factor)
+  const keywordPercentage = matchedKeywords / keywords.length;
+  const frequencyBonus = Math.min(totalMatches / keywords.length, 2) / 2; // Max 2x frequency bonus
+  
+  return (keywordPercentage * 40) + (frequencyBonus * 10);
+}
+
+/**
+ * Check if experience matches the required years
+ * @param {Object} analysis - CV analysis
+ * @param {string} experienceYears - Required experience range
+ * @returns {boolean} - Whether experience matches
+ */
+function checkExperienceMatch(analysis, experienceYears) {
+  if (!experienceYears || !analysis.experience) return true;
+  
+  const totalYears = calculateTotalExperience(analysis.experience);
+  const [minExp] = parseExperienceRange(experienceYears);
+  
+  return totalYears >= minExp;
 }
 
 // Función para parsear rangos de experiencia
@@ -195,28 +428,45 @@ async function filterResults(results, filters) {
  * @returns {number} - Total years of experience
  */
 function calculateTotalExperience(experience) {
+  if (!experience || !Array.isArray(experience)) return 0;
+  
   let totalYears = 0;
+  const currentYear = new Date().getFullYear();
   
   experience.forEach(job => {
-    // Parse start date
-    const startYear = parseInt(job.startDate?.split('-')[0]);
-    const startMonth = parseInt(job.startDate?.split('-')[1]) || 1;
-    
-    // Parse end date (handle 'Present')
-    let endYear, endMonth;
-    if (job.endDate?.toLowerCase() === 'present') {
-      const now = new Date();
-      endYear = now.getFullYear();
-      endMonth = now.getMonth() + 1;
-    } else {
-      endYear = parseInt(job.endDate?.split('-')[0]);
-      endMonth = parseInt(job.endDate?.split('-')[1]) || 12;
-    }
-    
-    // Calculate years between dates
-    if (startYear && endYear) {
-      const yearsWorked = (endYear - startYear) + (endMonth - startMonth) / 12;
-      totalYears += yearsWorked > 0 ? yearsWorked : 0;
+    try {
+      // Try to parse start date
+      let startYear = null;
+      if (job.startDate) {
+        if (job.startDate.includes('-')) {
+          startYear = parseInt(job.startDate.split('-')[0]);
+        } else {
+          startYear = parseInt(job.startDate);
+        }
+      }
+      
+      // Try to parse end date
+      let endYear = null;
+      if (job.endDate) {
+        if (job.endDate.toLowerCase().includes('present') || job.endDate.toLowerCase().includes('actual') || job.endDate.toLowerCase().includes('current')) {
+          endYear = currentYear;
+        } else if (job.endDate.includes('-')) {
+          endYear = parseInt(job.endDate.split('-')[0]);
+        } else {
+          endYear = parseInt(job.endDate);
+        }
+      } else {
+        // If no end date, assume current
+        endYear = currentYear;
+      }
+      
+      // Calculate years for this job
+      if (startYear && endYear && startYear <= endYear) {
+        const jobYears = endYear - startYear;
+        totalYears += Math.max(0, jobYears);
+      }
+    } catch (error) {
+      console.warn('Error calculating experience for job:', job, error);
     }
   });
   
@@ -267,12 +517,12 @@ function findHighestEducation(education) {
 
 /**
  * Check if education meets minimum level
- * @param {Object} education - Education entry
+ * @param {Array} education - Education array from CV analysis
  * @param {string} requiredLevel - Required education level
  * @returns {boolean} - Whether education meets requirement
  */
 function checkEducationLevel(education, requiredLevel) {
-  if (!education) return false;
+  if (!education || !Array.isArray(education) || !requiredLevel) return false;
   
   const levelRanks = {
     'high-school': 1,
@@ -284,23 +534,34 @@ function checkEducationLevel(education, requiredLevel) {
   
   const requiredRank = levelRanks[requiredLevel] || 0;
   
-  // Get rank of this education
-  let educationRank = 0;
-  const degreeText = education.degree?.toLowerCase() || '';
+  // Find highest education level in CV
+  let highestRank = 0;
   
-  if (degreeText.includes('phd') || degreeText.includes('doctorate')) {
-    educationRank = 5;
-  } else if (degreeText.includes('master') || degreeText.includes('mba')) {
-    educationRank = 4;
-  } else if (degreeText.includes('bachelor')) {
-    educationRank = 3;
-  } else if (degreeText.includes('associate')) {
-    educationRank = 2;
-  } else if (degreeText.includes('high school') || degreeText.includes('diploma')) {
-    educationRank = 1;
-  }
+  education.forEach(edu => {
+    const degreeText = (edu.degree || edu.titulo || '').toLowerCase();
+    
+    // Check for PhD/Doctorate
+    if (degreeText.includes('phd') || degreeText.includes('doctorate') || degreeText.includes('doctor')) {
+      highestRank = Math.max(highestRank, 5);
+    }
+    // Check for Master's
+    else if (degreeText.includes('master') || degreeText.includes('mba') || degreeText.includes('maestr')) {
+      highestRank = Math.max(highestRank, 4);
+    }
+    // Check for Bachelor's
+    else if (degreeText.includes('bachelor') || degreeText.includes('licenciatura') || degreeText.includes('ingenieria') || degreeText.includes('grado')) {
+      highestRank = Math.max(highestRank, 3);
+    }
+    // Check for Associate
+    else if (degreeText.includes('associate') || degreeText.includes('tecnico') || degreeText.includes('fp')) {
+      highestRank = Math.max(highestRank, 2);
+    }    // Check for High School
+    else if (degreeText.includes('high school') || degreeText.includes('bachillerato') || degreeText.includes('eso')) {
+      highestRank = Math.max(highestRank, 1);
+    }
+  });
   
-  return educationRank >= requiredRank;
+  return highestRank >= requiredRank;
 }
 
 /**
@@ -339,22 +600,42 @@ function checkLocationMatch(analysis, location) {
 }
 
 /**
- * Get all unique skills from a user's CVs (for autocomplete)
- * @param {string} userId - User ID
+ * Get all unique skills from a user's CVs (for autocomplete) - includes both direct and shared link CVs
+ * @param {string} userId - User ID (creator ID for shared link CVs)
  * @returns {Promise<Array>} - Array of unique skills
  */
 export async function getAllSkills(userId) {
   try {
-    const q = query(
+    // Query for both direct uploads and shared link uploads
+    const q1 = query(
       collection(db, 'cvs'),
       where('userId', '==', userId),
-      limit(50) // Limit to avoid performance issues
+      limit(25)
     );
     
-    const querySnapshot = await getDocs(q);
+    const q2 = query(
+      collection(db, 'cvs'),
+      where('creatorId', '==', userId),
+      limit(25)
+    );
+    
+    const [directSnapshot, sharedSnapshot] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2)
+    ]);
+    
     const allSkills = new Set();
     
-    querySnapshot.docs.forEach(doc => {
+    // Process direct uploads
+    directSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.analysis?.skills && Array.isArray(data.analysis.skills)) {
+        data.analysis.skills.forEach(skill => allSkills.add(skill));
+      }
+    });
+    
+    // Process shared link uploads
+    sharedSnapshot.docs.forEach(doc => {
       const data = doc.data();
       if (data.analysis?.skills && Array.isArray(data.analysis.skills)) {
         data.analysis.skills.forEach(skill => allSkills.add(skill));

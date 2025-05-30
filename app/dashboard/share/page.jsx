@@ -306,12 +306,13 @@ export default function SharePage() {
       </div>
 
       <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-2">How to use shared links</h3>
-        <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-600">
+        <h3 className="text-sm font-medium text-gray-900 mb-2">How to use shared links</h3>        <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-600">
           <li>Create a new shared link with a descriptive name</li>
           <li>Copy the link and share it with anyone who needs to submit a CV</li>
           <li>Recipients can upload CVs directly through the link without logging in</li>
-          <li>All uploaded CVs will be analyzed automatically and appear in your results</li>
+          <li>All uploaded CVs will be stored with text extraction for search purposes</li>
+          <li>CVs appear in your search results with the shared link name for easy identification</li>
+          <li>You can optionally run AI analysis on individual CVs when needed</li>
         </ol>
       </div>
     </div>

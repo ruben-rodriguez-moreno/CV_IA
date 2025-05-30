@@ -10,16 +10,17 @@ const CvSearchResults = ({ results, isLoading }) => {
   const [sortBy, setSortBy] = useState('match'); // 'match' or 'date'
   const { currentUser } = useAuth();
   const isPremiumUser = currentUser?.plan === 'pro' || currentUser?.plan === 'enterprise';
-
   // Handle sorting of results
   const sortedResults = [...results].sort((a, b) => {
     if (sortBy === 'match') {
       return (b.matchScore || 0) - (a.matchScore || 0);
     } else {
-      return new Date(b.uploadedAt) - new Date(a.uploadedAt);
+      // Handle different date field names for backward compatibility
+      const dateA = new Date(a.uploadedAt || a.uploadDate || 0);
+      const dateB = new Date(b.uploadedAt || b.uploadDate || 0);
+      return dateB - dateA;
     }
   });
-
   // Handle CSV export
   const handleExport = () => {
     if (!isPremiumUser) {
@@ -27,10 +28,48 @@ const CvSearchResults = ({ results, isLoading }) => {
       return;
     }
 
+    // Helper function to safely format dates for CSV
+    const formatDateForCSV = (dateValue) => {
+      if (!dateValue) return 'Unknown';
+      
+      try {
+        let date;
+        
+        // Handle Firestore Timestamp objects
+        if (dateValue && typeof dateValue === 'object' && dateValue.toDate && typeof dateValue.toDate === 'function') {
+          date = dateValue.toDate();
+        } 
+        // Handle Firestore Timestamp objects with seconds property
+        else if (dateValue && typeof dateValue === 'object' && dateValue.seconds && typeof dateValue.seconds === 'number') {
+          date = new Date(dateValue.seconds * 1000);
+        }
+        // Handle Date objects that are already dates
+        else if (dateValue instanceof Date) {
+          date = dateValue;
+        }
+        // Handle regular date strings/numbers
+        else {
+          date = new Date(dateValue);
+        }
+        
+        // Check if the date is valid
+        if (!date || isNaN(date.getTime())) {
+          return 'Unknown';
+        }
+        
+        return date.toLocaleDateString();
+      } catch (error) {
+        console.error('Error formatting date for CSV:', error);
+        return 'Unknown';
+      }
+    };
+
     // Prepare data for CSV export
     const csvData = results.map(cv => ({
       FileName: cv.fileName,
-      UploadedAt: new Date(cv.uploadedAt).toLocaleDateString(),
+      Source: cv.fromSharedLink ? `Shared Link: ${cv.sharedLinkName || 'Unknown'}` : 'Direct Upload',
+      AnalysisType: cv.analysisType === 'text_only' ? 'Text Only' : 'AI Analyzed',
+      UploadedAt: formatDateForCSV(cv.uploadedAt || cv.uploadDate),
       MatchScore: cv.matchScore ? `${Math.round(cv.matchScore)}%` : 'N/A',
       Summary: cv.analysis?.summary || 'N/A',
       Skills: cv.analysis?.skills?.join(', ') || 'N/A',
