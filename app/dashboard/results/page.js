@@ -32,9 +32,14 @@ export default function Results() {
   const [selectedSharedLinkId, setSelectedSharedLinkId] = useState('');
   /*const sharedLinkIds = Array.from(new Set(sharedLinkCVs.map(cv => cv.sharedLinkId).filter(Boolean)));*/
 
-  const filteredSharedLinkCVs = selectedSharedLinkId
-  ? sharedLinkCVs.filter(cv => cv.sharedLinkId === selectedSharedLinkId)
-  : sharedLinkCVs;
+  //Estado para la busqueda 
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredSharedLinkCVs = sharedLinkCVs
+  .filter(cv =>
+    (!selectedSharedLinkId || cv.sharedLinkId === selectedSharedLinkId) &&
+    (!searchTerm || cv.fileName.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
 
   // Agrupa por sharedLinkId y toma el primer nombre encontrado para cada id
@@ -108,7 +113,7 @@ export default function Results() {
       })));
     };
     fetchLinks();
-  }, [currentUser]);
+  }, [currentUser, activeFilter, selectedSharedLinkId, searchTerm]);
   const retryAnalysis = async (cvId) => {
     setProcessingAction(true);
     try {
@@ -597,20 +602,105 @@ export default function Results() {
         </div>
 
         {/* CVs subidos mediante Shared Link */}
-        <h2 className="text-lg font-bold mb-2">CVs Recibidos por Shared Link</h2>
-            <div className="mb-4">
-              <label className="mr-2 font-medium text-sm text-gray-700">Filtrar por Shared Link:</label>
-              <select
-                value={selectedSharedLinkId}
-                onChange={e => setSelectedSharedLinkId(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm"
-              >
-                <option value="">Todos</option>
-                {allSharedLinks.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.name}</option>
-                ))}
-              </select>
-            </div>
+            {sharedLinkCVs.length > 0 && (
+              <div className="mb-8 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">CVs Recibidos por Enlaces Compartidos</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      CVs enviados mediante tus enlaces de compartir
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    {/* Selector de enlace */}
+                    <div className="relative w-full">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <select
+                        value={selectedSharedLinkId}
+                        onChange={e => setSelectedSharedLinkId(e.target.value)}
+                        className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 appearance-none"
+                      >
+                        <option value="">Todos los enlaces</option>
+                        {allSharedLinks.map(opt => (
+                          <option key={opt.id} value={opt.id}>{opt.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Barra de búsqueda */}
+                    <div className="relative w-full">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Buscar por nombre de CV..."
+                        className="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                      {searchTerm && (
+                        <button
+                          onClick={() => setSearchTerm('')}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        >
+                          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtros activos */}
+                {(selectedSharedLinkId || searchTerm) && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {selectedSharedLinkId && (
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        Enlace: {allSharedLinks.find(l => l.id === selectedSharedLinkId)?.name || selectedSharedLinkId}
+                        <button
+                          onClick={() => setSelectedSharedLinkId('')}
+                          className="ml-2 -mr-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    {searchTerm && (
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        Buscando: "{searchTerm}"
+                        <button
+                          onClick={() => setSearchTerm('')}
+                          className="ml-2 -mr-1 text-green-600 hover:text-green-800"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-gray-500">
+                  Mostrando <span className="font-medium">{filteredSharedLinkCVs.length}</span> CV{filteredSharedLinkCVs.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            )}
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
