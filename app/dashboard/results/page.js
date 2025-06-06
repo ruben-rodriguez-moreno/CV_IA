@@ -134,12 +134,18 @@ export default function Results() {
 
   const deleteCv = async (cvId) => {
     if (!window.confirm("¿Estás seguro de que quieres eliminar este CV?")) return;
-    
+
     setProcessingAction(true);
     try {
       await deleteDoc(doc(db, 'cvs', cvId));
     } catch (err) {
-      setError("Error al eliminar: " + err.message);
+      console.error("Error detallado:", err);
+      setError("Error al eliminar: " + (err.message || "No tienes permisos para esta acción"));
+
+      // Muestra detalles adicionales del error si están disponibles
+      if (err.details) {
+        setError(prev => prev + ". Detalles: " + JSON.stringify(err.details));
+      }
     } finally {
       setProcessingAction(false);
     }
