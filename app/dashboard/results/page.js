@@ -25,9 +25,31 @@ export default function Results() {
   const [selectedCv, setSelectedCv] = useState(null);
   const [processingAction, setProcessingAction] = useState(false);
 
-
+  const [allSharedLinks, setAllSharedLinks] = useState([]);
   const sharedLinkCVs = results.filter(cv => cv.fromSharedLink);
   const uploadedCVs = results.filter(cv => !cv.fromSharedLink);
+
+  const [selectedSharedLinkId, setSelectedSharedLinkId] = useState('');
+  /*const sharedLinkIds = Array.from(new Set(sharedLinkCVs.map(cv => cv.sharedLinkId).filter(Boolean)));*/
+
+  const filteredSharedLinkCVs = selectedSharedLinkId
+  ? sharedLinkCVs.filter(cv => cv.sharedLinkId === selectedSharedLinkId)
+  : sharedLinkCVs;
+
+
+  // Agrupa por sharedLinkId y toma el primer nombre encontrado para cada id
+  const sharedLinkOptions = [];
+  const seenIds = new Set();
+  for (const cv of sharedLinkCVs) {
+    if (
+      cv.sharedLinkId &&
+      cv.sharedLinkName &&
+      !seenIds.has(cv.sharedLinkId)
+    ) {
+      sharedLinkOptions.push({ id: cv.sharedLinkId, name: cv.sharedLinkName });
+      seenIds.add(cv.sharedLinkId);
+    }
+  }
   useEffect(() => {
     if (!currentUser) return;
 
@@ -71,6 +93,22 @@ export default function Results() {
 
     return () => unsubscribe();
   }, [currentUser, activeFilter]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchLinks = async () => {
+      const q = query(
+        collection(db, 'sharedLinks'),
+        where('creatorId', '==', currentUser.uid) // <-- CAMBIA userId por creatorId
+      );
+      const snapshot = await getDocs(q);
+      setAllSharedLinks(snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || doc.data().description || doc.id
+      })));
+    };
+    fetchLinks();
+  }, [currentUser]);
   const retryAnalysis = async (cvId) => {
     setProcessingAction(true);
     try {
@@ -560,79 +598,92 @@ export default function Results() {
 
         {/* CVs subidos mediante Shared Link */}
         <h2 className="text-lg font-bold mb-2">CVs Recibidos por Shared Link</h2>
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                  Nombre del Archivo
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Fecha de Subida
-                </th>
-                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Estado
-                </th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                  <span className="sr-only">Acciones</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {sharedLinkCVs.map((result) => (
-                <tr key={result.id}>
-                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                    {result.fileName}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {formatDate(result.uploadDate)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {getStatusBadge(result.status)}
-                  </td>
-                  <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => window.open(result.fileURL, '_blank')}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Ver CV Original"
-                      >
-                        <EyeIcon className="h-5 w-5" />
-                      </button>
-                      {result.status === 'completed' && (
-                        <button
-                          onClick={() => viewCvDetails(result)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Ver Detalles del Análisis"
-                        >
-                          <MagnifyingGlassIcon className="h-5 w-5" />
-                        </button>
-                      )}
-                      {(result.status === 'pending' || result.status === 'failed') && (
-                        <button
-                          onClick={() => retryAnalysis(result.id)}
-                          disabled={processingAction}
-                          className={`text-yellow-600 hover:text-yellow-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title="Reintentar Análisis"
-                        >
-                          <ArrowPathIcon className="h-5 w-5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => deleteCv(result.id)}
-                        disabled={processingAction}
-                        className={`text-red-600 hover:text-red-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title="Eliminar CV"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            <div className="mb-4">
+              <label className="mr-2 font-medium text-sm text-gray-700">Filtrar por Shared Link:</label>
+              <select
+                value={selectedSharedLinkId}
+                onChange={e => setSelectedSharedLinkId(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="">Todos</option>
+                {allSharedLinks.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                      Nombre del Archivo
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Fecha de Subida
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Estado
+                    </th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                      <span className="sr-only">Acciones</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {filteredSharedLinkCVs.map((result) => (
+                    <tr key={result.id}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                        {result.fileName}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {formatDate(result.uploadDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {getStatusBadge(result.status)}
+                      </td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        <div className="flex justify-end space-x-3">
+                          <button
+                            onClick={() => window.open(result.fileURL, '_blank')}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Ver CV Original"
+                          >
+                            <EyeIcon className="h-5 w-5" />
+                          </button>
+                          {result.status === 'completed' && (
+                            <button
+                              onClick={() => viewCvDetails(result)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Ver Detalles del Análisis"
+                            >
+                              <MagnifyingGlassIcon className="h-5 w-5" />
+                            </button>
+                          )}
+                          {(result.status === 'pending' || result.status === 'failed') && (
+                            <button
+                              onClick={() => retryAnalysis(result.id)}
+                              disabled={processingAction}
+                              className={`text-yellow-600 hover:text-yellow-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title="Reintentar Análisis"
+                            >
+                              <ArrowPathIcon className="h-5 w-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteCv(result.id)}
+                            disabled={processingAction}
+                            className={`text-red-600 hover:text-red-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title="Eliminar CV"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
       </div>
     )}
 
