@@ -25,26 +25,43 @@ export default function Results() {
   const [selectedCv, setSelectedCv] = useState(null);
   const [processingAction, setProcessingAction] = useState(false);
 
+
+  const sharedLinkCVs = results.filter(cv => cv.fromSharedLink);
+  const uploadedCVs = results.filter(cv => !cv.fromSharedLink);
   useEffect(() => {
     if (!currentUser) return;
 
     const q = query(
-      collection(db, 'cvs'),
-      orderBy('uploadedAt', 'desc')
+      collection(db, 'cvs')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const updatedResults = snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          uploadedAt: doc.data().uploadedAt?.toDate()
-        }))
-        .filter(cv => 
+        .map(doc => {
+          const data = doc.data();
+          const date = data.uploadedAt?.toDate?.() || data.uploadDate?.toDate?.() || null;
+
+          // Normaliza el análisis para que siempre exista analysis
+          let analysis = data.analysis;
+          if (!analysis && data.extractedText) {
+            analysis = {
+              rawText: data.extractedText,
+              // Puedes agregar más campos si los necesitas
+            };
+          }
+
+          return {
+            id: doc.id,
+            ...data,
+            uploadDate: date,
+            analysis, // Siempre habrá analysis aunque sea solo rawText
+          };
+        })
+        .filter(cv =>
           (cv.userId === currentUser.uid || cv.creatorId === currentUser.uid) &&
           (activeFilter === 'all' || cv.status === activeFilter)
-        );
-
+        )
+        .sort((a, b) => (b.uploadDate?.getTime?.() || 0) - (a.uploadDate?.getTime?.() || 0));
       setResults(updatedResults);
       setLoading(false);
     }, (err) => {
@@ -443,28 +460,32 @@ export default function Results() {
             ))}
           </nav>
         </div>
-      </div>      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-3 text-sm text-gray-500">Cargando resultados...</p>
-        </div>
-      ) : results.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron CVs</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {activeFilter === 'all'
-              ? "Aún no has subido ningún CV"
-              : `No se encontraron CVs con estado "${
-                  activeFilter === 'pending' ? 'pendiente' :
-                  activeFilter === 'processing' ? 'procesando' :
-                  activeFilter === 'completed' ? 'completado' :
+      </div>      
+    {loading ? (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-3 text-sm text-gray-500">Cargando resultados...</p>
+      </div>
+    ) : results.length === 0 ? (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron CVs</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          {activeFilter === 'all'
+            ? "Aún no has subido ningún CV"
+            : `No se encontraron CVs con estado "${activeFilter === 'pending' ? 'pendiente' :
+              activeFilter === 'processing' ? 'procesando' :
+                activeFilter === 'completed' ? 'completado' :
                   activeFilter === 'failed' ? 'fallido' : activeFilter
-                }"`}
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">          <table className="min-w-full divide-y divide-gray-300">
+            }"`}
+        </p>
+      </div>
+    ) : (
+      <div>
+        {/* CVs subidos desde Upload CV */}
+        <h2 className="text-lg font-bold mb-2">Tus CVs Subidos</h2>
+        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg mb-8">
+          <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
@@ -482,26 +503,26 @@ export default function Results() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {results.map((result) => (
+              {uploadedCVs.map((result) => (
                 <tr key={result.id}>
                   <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                     {result.fileName}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                    {formatDate(result.uploadedAt)}
+                    {formatDate(result.uploadDate)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                     {getStatusBadge(result.status)}
                   </td>
                   <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                    <div className="flex justify-end space-x-3">                      <button
+                    <div className="flex justify-end space-x-3">
+                      <button
                         onClick={() => window.open(result.fileURL, '_blank')}
                         className="text-blue-600 hover:text-blue-900"
                         title="Ver CV Original"
                       >
                         <EyeIcon className="h-5 w-5" />
                       </button>
-
                       {result.status === 'completed' && (
                         <button
                           onClick={() => viewCvDetails(result)}
@@ -511,7 +532,6 @@ export default function Results() {
                           <MagnifyingGlassIcon className="h-5 w-5" />
                         </button>
                       )}
-
                       {(result.status === 'pending' || result.status === 'failed') && (
                         <button
                           onClick={() => retryAnalysis(result.id)}
@@ -537,7 +557,84 @@ export default function Results() {
             </tbody>
           </table>
         </div>
-      )}
+
+        {/* CVs subidos mediante Shared Link */}
+        <h2 className="text-lg font-bold mb-2">CVs Recibidos por Shared Link</h2>
+        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+          <table className="min-w-full divide-y divide-gray-300">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                  Nombre del Archivo
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  Fecha de Subida
+                </th>
+                <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  Estado
+                </th>
+                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                  <span className="sr-only">Acciones</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {sharedLinkCVs.map((result) => (
+                <tr key={result.id}>
+                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                    {result.fileName}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {formatDate(result.uploadDate)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {getStatusBadge(result.status)}
+                  </td>
+                  <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => window.open(result.fileURL, '_blank')}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Ver CV Original"
+                      >
+                        <EyeIcon className="h-5 w-5" />
+                      </button>
+                      {result.status === 'completed' && (
+                        <button
+                          onClick={() => viewCvDetails(result)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Ver Detalles del Análisis"
+                        >
+                          <MagnifyingGlassIcon className="h-5 w-5" />
+                        </button>
+                      )}
+                      {(result.status === 'pending' || result.status === 'failed') && (
+                        <button
+                          onClick={() => retryAnalysis(result.id)}
+                          disabled={processingAction}
+                          className={`text-yellow-600 hover:text-yellow-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Reintentar Análisis"
+                        >
+                          <ArrowPathIcon className="h-5 w-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteCv(result.id)}
+                        disabled={processingAction}
+                        className={`text-red-600 hover:text-red-900 ${processingAction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title="Eliminar CV"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
 
       {selectedCv && (        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-auto">
