@@ -1,6 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const stripe = require('stripe')('sk_test_51RPjdVQx6hEw1903Ygj1Eo6sxpug7iwZc1w6uVAxFjmpq2cEzhwv7086tGUJnGCG38FQFj7Zk9N7jWHfkeL7Nq8200zpr0sK4o');
+const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 admin.initializeApp();
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET
