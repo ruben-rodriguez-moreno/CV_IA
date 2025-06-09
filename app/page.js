@@ -24,7 +24,7 @@ export default function Home() {
                 </Link>
                 <Link href="/pricing" className="btn btn-secondary ml-4 px-8 py-3 text-lg">
                   View pricing
-                </Link>
+                </Link> 
               </div>
             </div>
           </div>

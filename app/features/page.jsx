@@ -32,11 +32,7 @@ export default function Features() {
   
   const handleCVAnalysis = (e) => {
     e.preventDefault();
-    if (isLoggedIn) {
-      router.push('/dashboard/upload');
-    } else {
-      router.push('/login');
-    }
+    router.push('/dashboard/upload');
   };
 
   return (
