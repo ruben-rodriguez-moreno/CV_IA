@@ -237,3 +237,110 @@ export const featuresTranslations = {
     ctaSubtitle: "Sube tu CV ahora y obtén información personalizada para ayudarte a conseguir el trabajo de tus sueños."
   }
 };
+
+export const pricingTranslations = {
+  en: {
+    // Hero Section
+    heroTitle: "Simple, transparent pricing",
+    heroSubtitle: "Choose the plan that's right for you. All plans come with a 14-day money-back guarantee.",
+    
+    // Plans
+    freePlanName: "Free Plan",
+    freePlanPrice: "$0",
+    freePlanPeriod: "/month",
+    freePlanDescription: "3 CV analyses per month. Basic CV analysis for job seekers.",
+    freePlanFeatures: [
+      "3 CV analyses per month",
+      "Basic formatting feedback",
+      "General content suggestions",
+      "Export to PDF",
+      "Standard support"
+    ],
+    freePlanButton: "Current Plan",
+    
+    proPlanName: "Pro Plan",
+    proPlanPrice: "$29",
+    proPlanPeriod: "/month",
+    proPlanDescription: "100 CVs per month. Advanced analysis for serious job hunters.",
+    proPlanFeatures: [
+      "100 CVs per month",
+      "Advanced CV analysis",
+      "Export data to CSV/PDF",
+      "Enhanced support",
+      "ATS optimization tips",
+      "Keyword analysis for job descriptions",
+      "Resume templates access"
+    ],
+    proPlanButton: "Subscribe",
+    
+    enterprisePlanName: "Enterprise Plan",
+    enterprisePlanPrice: "$296",
+    enterprisePlanPeriod: "/year",
+    enterprisePlanDescription: "1000+ CVs per month. Complete solution for organizations.",
+    enterprisePlanFeatures: [
+      "1000+ CVs per month",
+      "Premium CV analysis",
+      "Advanced data exports",
+      "Priority support",
+      "Dedicated account manager",
+      "Multiple user accounts",
+      "Team management dashboard",
+      "API access",
+      "Custom integration",
+      "Custom branding"
+    ],
+    enterprisePlanButton: "Subscribe"
+  },
+  es: {
+    // Hero Section
+    heroTitle: "Precios simples y transparentes",
+    heroSubtitle: "Elige el plan que mejor se adapte a ti. Todos los planes incluyen garantía de devolución de 14 días.",
+    
+    // Plans
+    freePlanName: "Plan Gratuito",
+    freePlanPrice: "$0",
+    freePlanPeriod: "/mes",
+    freePlanDescription: "3 análisis de CV por mes. Análisis básico de CV para buscadores de empleo.",
+    freePlanFeatures: [
+      "3 análisis de CV por mes",
+      "Retroalimentación básica de formato",
+      "Sugerencias generales de contenido",
+      "Exportar a PDF",
+      "Soporte estándar"
+    ],
+    freePlanButton: "Plan Actual",
+    
+    proPlanName: "Plan Pro",
+    proPlanPrice: "$29",
+    proPlanPeriod: "/mes",
+    proPlanDescription: "100 CVs por mes. Análisis avanzado para cazadores de empleo serios.",
+    proPlanFeatures: [
+      "100 CVs por mes",
+      "Análisis avanzado de CV",
+      "Exportar datos a CSV/PDF",
+      "Soporte mejorado",
+      "Consejos de optimización ATS",
+      "Análisis de palabras clave para descripciones de trabajo",
+      "Acceso a plantillas de currículum"
+    ],
+    proPlanButton: "Suscribirse",
+    
+    enterprisePlanName: "Plan Empresarial",
+    enterprisePlanPrice: "$296",
+    enterprisePlanPeriod: "/año",
+    enterprisePlanDescription: "1000+ CVs por mes. Solución completa para organizaciones.",
+    enterprisePlanFeatures: [
+      "1000+ CVs por mes",
+      "Análisis premium de CV",
+      "Exportaciones avanzadas de datos",
+      "Soporte prioritario",
+      "Gerente de cuenta dedicado",
+      "Múltiples cuentas de usuario",
+      "Panel de gestión de equipos",
+      "Acceso a API",
+      "Integración personalizada",
+      "Marca personalizada"
+    ],
+    enterprisePlanButton: "Suscribirse"
+  }
+};
