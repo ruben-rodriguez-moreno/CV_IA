@@ -1,3 +1,50 @@
+export const homeTranslations = {
+  en: {
+    // Hero Section
+    heroTitle1: "Optimize your resume with",
+    heroTitle2: "AI-powered analysis",
+    heroSubtitle: "Get feedback on your CV, identify improvement areas, and increase your chances of landing interviews.",
+    getStartedButton: "Get started for free",
+    viewPricingButton: "View pricing",
+    
+    // Features Section
+    featuresTitle: "How CV-IA works for you",
+    featuresSubtitle: "Our AI-powered platform analyzes your resume to help you stand out from the competition.",
+    
+    // Feature Cards
+    uploadTitle: "Upload your CV",
+    uploadDescription: "Simply upload your resume in PDF or DOCX format to get started.",
+    
+    analyzeTitle: "Analyze with AI",
+    analyzeDescription: "Our advanced AI algorithms analyze your resume for content, formatting, and industry alignment.",
+    
+    insightsTitle: "Get Actionable Insights",
+    insightsDescription: "Receive personalized recommendations to improve your resume and boost your job search success."
+  },
+  es: {
+    // Hero Section
+    heroTitle1: "Optimiza tu currículum con",
+    heroTitle2: "análisis impulsado por IA",
+    heroSubtitle: "Obtén feedback sobre tu CV, identifica áreas de mejora y aumenta tus posibilidades de conseguir entrevistas.",
+    getStartedButton: "Comenzar gratis",
+    viewPricingButton: "Ver precios",
+    
+    // Features Section
+    featuresTitle: "Cómo CV-IA funciona para ti",
+    featuresSubtitle: "Nuestra plataforma impulsada por IA analiza tu currículum para ayudarte a destacar de la competencia.",
+    
+    // Feature Cards
+    uploadTitle: "Sube tu CV",
+    uploadDescription: "Simplemente sube tu currículum en formato PDF o DOCX para comenzar.",
+    
+    analyzeTitle: "Analiza con IA",
+    analyzeDescription: "Nuestros algoritmos avanzados de IA analizan tu currículum en cuanto a contenido, formato y alineación con la industria.",
+    
+    insightsTitle: "Obtén Información Accionable",
+    insightsDescription: "Recibe recomendaciones personalizadas para mejorar tu currículum y potenciar el éxito de tu búsqueda de empleo."
+  }
+};
+
 export const aboutTranslations = {
   en: {
     // Hero Section
