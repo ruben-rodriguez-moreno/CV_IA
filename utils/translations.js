@@ -129,7 +129,111 @@ export const aboutTranslations = {
     // CTA Section
     ctaTitle: "¿Listo para optimizar tu currículum?",
     ctaSubtitle: "Comienza tu análisis gratuito hoy.",
-    ctaButtonPrimary: "Comenzar",
-    ctaButtonSecondary: "Saber más"
+    ctaButtonPrimary: "Comenzar",    ctaButtonSecondary: "Saber más"
+  }
+};
+
+export const featuresTranslations = {
+  en: {
+    // Hero Section
+    heroTitle1: "Analyze Your CV",
+    heroTitle2: "Improve Your Chances",
+    heroSubtitle: "Our AI-powered CV analysis tool helps you stand out from the crowd by identifying strengths and suggesting improvements.",
+    analyzeCVButton: "Analyze My CV",
+    
+    // Features Section
+    featuresTitle: "Powerful CV Analysis Features",
+    featuresSubtitle: "Discover what makes our CV analysis tool the best choice for job seekers.",
+    
+    // Feature Cards
+    formatAnalysisTitle: "Format Analysis",
+    formatAnalysisDescription: "Get feedback on your CV's layout, design, and overall visual appeal to ensure it makes a great first impression.",
+    
+    skillsExtractionTitle: "Skills Extraction",
+    skillsExtractionDescription: "Automatically extract and highlight your key skills, comparing them to industry standards.",
+    
+    experienceAssessmentTitle: "Experience Assessment",
+    experienceAssessmentDescription: "Get insights on how to better present your work experience and highlight achievements.",
+    
+    educationAnalysisTitle: "Education Analysis",
+    educationAnalysisDescription: "Understand how to best position your educational background for your target roles.",
+    
+    atsCompatibilityTitle: "ATS Compatibility",
+    atsCompatibilityDescription: "Check if your CV is optimized for Applicant Tracking Systems that companies use to filter candidates.",
+    
+    personalizedRecommendationsTitle: "Personalized Recommendations",
+    personalizedRecommendationsDescription: "Receive tailored suggestions to improve your CV based on industry best practices.",
+    
+    // Testimonials Section
+    testimonialsTitle: "Testimonials",
+    testimonialsSubtitle: "Success stories from our users",
+    
+    testimonial1Name: "Juan Pérez",
+    testimonial1Role: "Software Developer",
+    testimonial1Text: "Thanks to this tool, I was able to identify key skills I was missing in my CV. After updating it, I got three interview calls in a week!",
+    
+    testimonial2Name: "María González",
+    testimonial2Role: "Marketing Specialist",
+    testimonial2Text: "The feedback was incredibly detailed and specific to my industry. It helped me reframe my experience in a way that really speaks to recruiters.",
+    
+    testimonial3Name: "Carlos Rodríguez",
+    testimonial3Role: "Finance Analyst",
+    testimonial3Text: "I was skeptical at first, but the AI gave me insights I hadn't considered. The ATS optimization tips were especially valuable.",
+    
+    // CTA Section
+    ctaTitle1: "Ready to improve your CV?",
+    ctaTitle2: "Start using our tool today.",
+    ctaSubtitle: "Upload your CV now and get personalized insights to help you land your dream job."
+  },
+  es: {
+    // Hero Section
+    heroTitle1: "Analiza tu CV",
+    heroTitle2: "Mejora tus Oportunidades",
+    heroSubtitle: "Nuestra herramienta de análisis de CV impulsada por IA te ayuda a destacar entre la multitud identificando fortalezas y sugiriendo mejoras.",
+    analyzeCVButton: "Analizar mi CV",
+    
+    // Features Section
+    featuresTitle: "Potentes Características de Análisis de CV",
+    featuresSubtitle: "Descubre qué hace que nuestra herramienta de análisis de CV sea la mejor opción para quienes buscan empleo.",
+    
+    // Feature Cards
+    formatAnalysisTitle: "Análisis de Formato",
+    formatAnalysisDescription: "Obtén retroalimentación sobre el diseño, formato y atractivo visual general de tu CV para asegurar que cause una gran primera impresión.",
+    
+    skillsExtractionTitle: "Extracción de Habilidades",
+    skillsExtractionDescription: "Extrae y destaca automáticamente tus habilidades clave, comparándolas con los estándares de la industria.",
+    
+    experienceAssessmentTitle: "Evaluación de Experiencia",
+    experienceAssessmentDescription: "Obtén información sobre cómo presentar mejor tu experiencia laboral y destacar logros.",
+    
+    educationAnalysisTitle: "Análisis de Educación",
+    educationAnalysisDescription: "Comprende cómo posicionar mejor tu formación educativa para los roles que buscas.",
+    
+    atsCompatibilityTitle: "Compatibilidad con ATS",
+    atsCompatibilityDescription: "Verifica si tu CV está optimizado para los Sistemas de Seguimiento de Candidatos que las empresas usan para filtrar candidatos.",
+    
+    personalizedRecommendationsTitle: "Recomendaciones Personalizadas",
+    personalizedRecommendationsDescription: "Recibe sugerencias adaptadas para mejorar tu CV basadas en las mejores prácticas de la industria.",
+    
+    // Testimonials Section
+    testimonialsTitle: "Testimonios",
+    testimonialsSubtitle: "Historias de éxito de nuestros usuarios",
+    
+    testimonial1Name: "Juan Pérez",
+    testimonial1Role: "Desarrollador de Software",
+    testimonial1Text: "¡Gracias a esta herramienta, pude identificar habilidades clave que me faltaban en mi CV. Después de actualizarlo, recibí tres llamadas para entrevistas en una semana!",
+    
+    testimonial2Name: "María González",
+    testimonial2Role: "Especialista en Marketing",
+    testimonial2Text: "La retroalimentación fue increíblemente detallada y específica para mi industria. Me ayudó a reformular mi experiencia de una manera que realmente habla a los reclutadores.",
+    
+    testimonial3Name: "Carlos Rodríguez",
+    testimonial3Role: "Analista Financiero",
+    testimonial3Text: "Al principio era escéptico, pero la IA me dio información que no había considerado. Los consejos de optimización para ATS fueron especialmente valiosos.",
+    
+    // CTA Section
+    ctaTitle1: "¿Listo para mejorar tu CV?",
+    ctaTitle2: "Comienza a usar nuestra herramienta hoy.",
+    ctaSubtitle: "Sube tu CV ahora y obtén información personalizada para ayudarte a conseguir el trabajo de tus sueños."
   }
 };
