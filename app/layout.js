@@ -1,6 +1,7 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '/contexts/AuthContext';
+import { LanguageProvider } from '/contexts/LanguageContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,11 +17,12 @@ export default function RootLayout({ children }) {
         {/* Aquí añadimos el favicon */}
         <link rel="icon" href="/icons/icono.png" type="image/png" />
         {/* Otros elementos que podrías agregar */}
-      </head>
-      <body className={inter.className}>
+      </head>      <body className={inter.className}>
         {/* Proveedor de autenticación para toda la aplicación */}
         <AuthProvider>
-          {children}
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
