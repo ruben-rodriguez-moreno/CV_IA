@@ -8,8 +8,8 @@ import { CheckIcon } from '@heroicons/react/24/outline';
 export default function SubscriptionPage() {
   const { currentUser } = useAuth();
   const [subscriptionActive, setSubscriptionActive] = useState(false);
-  const [subscriptionPlan, setSubscriptionPlan]       = useState('free');
-  const [isLoading, setIsLoading]                     = useState(true);
+  const [subscriptionPlan, setSubscriptionPlan] = useState('free');
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function SubscriptionPage() {
   }, [currentUser]);
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading subscription data…</div>;
+    return <div className="text-center py-12">Cargando datos de suscripción…</div>;
   }
 
   const handleSubscribe = (planId) => {
@@ -42,9 +42,9 @@ export default function SubscriptionPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ planId }),
     })
-    .then(r => r.json())
-    .then(({ url }) => url && (window.location.href = url))
-    .catch(console.error);
+      .then(r => r.json())
+      .then(({ url }) => url && (window.location.href = url))
+      .catch(console.error);
   };
 
   const handleManage = () => {
@@ -65,30 +65,30 @@ export default function SubscriptionPage() {
   const plans = [
     {
       key: 'free',
-      title: 'Free Plan',
-      price: '$0',
-      interval: 'month',
-      features: ['5 CVs per month','Basic CV analysis','Standard support']
+      title: 'Plan Gratis',
+      price: '0€',
+      interval: 'mes',
+      features: ['5 CVs al mes', 'Análisis básico de CV', 'Soporte estándar']
     },
     {
       key: 'pro',
-      title: 'Pro Plan',
-      price: '$29',
-      interval: 'month',
-      features: ['100 CVs per month','Advanced CV analysis','Export data to CSV/PDF','Enhanced support']
+      title: 'Plan Pro',
+      price: '29€',
+      interval: 'mes',
+      features: ['100 CVs al mes', 'Análisis avanzado de CV', 'Exportar datos a CSV/PDF', 'Soporte mejorado']
     },
     {
       key: 'enterprise',
-      title: 'Enterprise Plan',
-      price: '$296',
-      interval: 'year',
-      features: ['1000+ CVs per month','Premium CV analysis','Advanced data exports','Priority support','Dedicated account manager']
+      title: 'Plan Empresa',
+      price: '296€',
+      interval: 'año',
+      features: ['1000+ CVs al mes', 'Análisis premium de CV', 'Exportaciones avanzadas de datos', 'Soporte prioritario', 'Gestor de cuenta dedicado']
     }
   ];
 
   return (
     <div className="py-8">
-      <h1 className="text-3xl font-bold mb-8">Subscription Plans</h1>
+      <h1 className="text-3xl font-bold mb-8">Planes de Suscripción</h1>
       <div className="grid md:grid-cols-3 gap-8">
         {plans.map(plan => (
           <div
@@ -118,20 +118,20 @@ export default function SubscriptionPage() {
               }`}
             >
               {subscriptionPlan === plan.key
-                ? 'Current Plan'
+                ? 'Plan Actual'
                 : plan.key === 'free'
-                  ? 'Select Plan'
-                  : 'Subscribe'}
+                  ? 'Seleccionar Plan'
+                  : 'Suscribirse'}
             </button>
 
-            {/* Solo para Enterprise mostramos el Manage si está activo */}
+            {/* Solo para Empresa mostramos el botón de gestión si está activo */}
             {plan.key === 'enterprise' && subscriptionActive && (
               <div className="mt-4 text-center">
                 <button
                   onClick={handleManage}
                   className="px-6 py-2 border rounded-md hover:bg-secondary-100"
                 >
-                  Manage Subscription
+                  Gestionar Suscripción
                 </button>
               </div>
             )}

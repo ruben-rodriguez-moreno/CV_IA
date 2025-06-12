@@ -44,18 +44,18 @@ export default function UploadCV() {
   };
 
   const handleFile = (file) => {
-    // Check file type
+    // Comprobar tipo de archivo
     if (file.type !== 'application/pdf' && 
         file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && 
         file.type !== 'application/msword') {
-      setError('Please upload a PDF or Word document.');
+      setError('Por favor, sube un documento PDF o Word.');
       setFile(null);
       return;
     }
     
-    // Check file size (5MB max)
+    // Comprobar tamaño (máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('File size should be less than 5MB.');
+      setError('El archivo debe pesar menos de 5MB.');
       setFile(null);
       return;
     }
@@ -71,7 +71,7 @@ export default function UploadCV() {
       setLoading(true);
       setError('');
   
-      // Crear una referencia de almacenamiento
+      // Crear referencia de almacenamiento
       const fileExtension = file.name.split('.').pop();
       let fileName, storageRef;
   
@@ -125,8 +125,8 @@ export default function UploadCV() {
       // Redirigir a la página de resultados
       router.push('/dashboard/results');
     } catch (error) {
-      console.error('Error uploading file:', error);
-      setError('Failed to upload file. Please try again.');
+      console.error('Error al subir el archivo:', error);
+      setError('No se pudo subir el archivo. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -134,11 +134,11 @@ export default function UploadCV() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-secondary-900">Upload CV</h1>
+      <h1 className="text-2xl font-semibold text-secondary-900">Subir CV</h1>
       
       <div className="mt-6">
         <p className="text-sm text-secondary-600">
-          Upload your CV for AI analysis. We accept PDF and Word documents.
+          Sube tu CV para análisis con IA. Aceptamos documentos PDF y Word.
         </p>
       </div>
       
@@ -172,12 +172,12 @@ export default function UploadCV() {
                     htmlFor="file-upload" 
                     className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none"
                   >
-                    <span>Upload a file</span>
+                    <span>Sube un archivo</span>
                   </label>
-                  {' '}or drag and drop
+                  {' '}o arrástralo aquí
                 </p>
                 <p className="text-xs text-secondary-500 mt-1">
-                  PDF or Word up to 5MB
+                  PDF o Word hasta 5MB
                 </p>
               </>
             ) : (
@@ -193,7 +193,7 @@ export default function UploadCV() {
                   className="mt-3 text-xs text-primary-600 hover:text-primary-500"
                   onClick={() => setFile(null)}
                 >
-                  Select a different file
+                  Selecciona otro archivo
                 </button>
               </div>
             )}
@@ -213,7 +213,7 @@ export default function UploadCV() {
             disabled={!file || loading}
             onClick={uploadCV}
           >
-            {loading ? 'Uploading...' : 'Upload and Analyze'}
+            {loading ? 'Subiendo...' : 'Subir y analizar'}
           </button>
         </div>
       </div>
