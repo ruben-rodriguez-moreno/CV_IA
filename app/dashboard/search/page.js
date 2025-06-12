@@ -14,7 +14,7 @@ export default function CvSearchPage() {
   const [initialLoad, setInitialLoad] = useState(true);
   const { currentUser } = useAuth();
 
-  // Load available skills for autocomplete
+  // Cargar habilidades disponibles para autocompletar
   useEffect(() => {
     if (currentUser?.uid) {
       async function loadSkills() {
@@ -25,7 +25,7 @@ export default function CvSearchPage() {
     }
   }, [currentUser]);
 
-  // Handle search
+  // Manejar búsqueda
   const handleSearch = async (filters) => {
     if (!currentUser?.uid) return;
     
@@ -35,7 +35,7 @@ export default function CvSearchPage() {
       setResults(searchResults);
       setInitialLoad(false);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('Error en la búsqueda:', error);
     } finally {
       setLoading(false);
     }
@@ -43,11 +43,11 @@ export default function CvSearchPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-secondary-900">Search CVs</h1>
+      <h1 className="text-2xl font-semibold text-secondary-900">Buscar CVs</h1>
       
       <div className="mt-6">
         <p className="text-sm text-secondary-600">
-          Search through your CV database using keywords, skills, and other criteria.
+          Busca en tu base de datos de CVs usando palabras clave, habilidades y otros criterios.
         </p>
       </div>
 
@@ -61,10 +61,10 @@ export default function CvSearchPage() {
         {initialLoad ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <MagnifyingGlassCircleIcon className="h-16 w-16 text-secondary-300 mx-auto" />
-            <h3 className="mt-4 text-lg font-medium text-secondary-700">Search Your CVs</h3>
+            <h3 className="mt-4 text-lg font-medium text-secondary-700">Busca en tus CVs</h3>
             <p className="mt-2 text-sm text-secondary-500 max-w-md mx-auto">
-              Use the search box above to find CVs by skills, experience level, education, or location.
-              Add multiple keywords to narrow your results.
+              Usa el cuadro de búsqueda de arriba para encontrar CVs por habilidades, experiencia, educación o ubicación.
+              Añade varias palabras clave para afinar tus resultados.
             </p>
           </div>
         ) : (

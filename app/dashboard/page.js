@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
 
-  // Monitor network status for better Firebase caching
+  // Monitorizar el estado de la red para mejor caché de Firebase
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -47,6 +47,7 @@ export default function Dashboard() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
   useEffect(() => {
     if (!currentUser) {
       setRecentUploads([]);
@@ -54,34 +55,29 @@ export default function Dashboard() {
       return;
     }
 
-    // Set up real-time listener for recent uploads from Firebase with optimizations
+    // Escuchar en tiempo real las últimas subidas del usuario
     const q = query(
       collection(db, 'cvs'),
       where('userId', '==', currentUser.uid),
       orderBy('uploadDate', 'desc'),
-      limit(5) // Show last 5 uploads
+      limit(5)
     );
 
     const unsubscribe = onSnapshot(q, 
       {
-        // Use cache first, then server for better performance
         includeMetadataChanges: false
       },
       (querySnapshot) => {
-        // Check if data came from cache for faster loading
-        const source = querySnapshot.metadata.fromCache ? "local cache" : "server";
-        console.log("Data came from " + source);
-
         const uploads = querySnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
-            name: data.fileName || data.originalName || 'Unknown file',
+            name: data.fileName || data.originalName || 'Archivo desconocido',
             date: data.uploadDate?.toDate ? 
                   format(data.uploadDate.toDate(), 'dd/MM/yyyy') : 
                   format(new Date(), 'dd/MM/yyyy'),
-            score: data.analysis?.overallScore || data.analysis?.score || data.score || 'Pending',
-            status: data.status || 'pending',
+            score: data.analysis?.overallScore || data.analysis?.score || data.score || 'Pendiente',
+            status: data.status || 'pendiente',
             fileSize: data.fileSize || null,
             analysisDate: data.analysisDate?.toDate ? 
                          format(data.analysisDate.toDate(), 'dd/MM/yyyy') : null
@@ -92,24 +88,25 @@ export default function Dashboard() {
         setLoading(false);
       }, 
       (error) => {
-        console.error('Error fetching recent uploads:', error);
+        console.error('Error al obtener las subidas recientes:', error);
         setRecentUploads([]);
         setLoading(false);
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [currentUser]);
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-secondary-900">Dashboard</h1>
+      <h1 className="text-2xl font-semibold text-secondary-900">Panel de Control</h1>
       
       <div className="mt-6">
-        <h2 className="text-lg font-medium text-secondary-800">Welcome, {currentUser?.displayName || 'User'}!</h2>
+        <h2 className="text-lg font-medium text-secondary-800">
+          ¡Bienvenido{currentUser?.displayName ? `, ${currentUser.displayName}` : ''}!
+        </h2>
         <p className="mt-1 text-sm text-secondary-600">
-          Get started by uploading your CV for analysis or check your previous results.
+          Empieza subiendo tu CV para análisis o consulta tus resultados anteriores.
         </p>
       </div>
       
@@ -124,9 +121,9 @@ export default function Dashboard() {
                 <DocumentTextIcon className="h-6 w-6 text-primary-600" aria-hidden="true" />
               </div>
               <div className="ml-5">
-                <dt className="text-lg font-medium text-secondary-900">Upload CV</dt>
+                <dt className="text-lg font-medium text-secondary-900">Subir CV</dt>
                 <dd className="mt-1 text-sm text-secondary-500">
-                  Upload a new CV for analysis
+                  Sube un nuevo CV para analizarlo
                 </dd>
               </div>
             </div>
@@ -143,9 +140,9 @@ export default function Dashboard() {
                 <ChartBarIcon className="h-6 w-6 text-primary-600" aria-hidden="true" />
               </div>
               <div className="ml-5">
-                <dt className="text-lg font-medium text-secondary-900">Results</dt>
+                <dt className="text-lg font-medium text-secondary-900">Resultados</dt>
                 <dd className="mt-1 text-sm text-secondary-500">
-                  View analysis results and feedback
+                  Ver resultados y feedback de los análisis
                 </dd>
               </div>
             </div>
@@ -162,9 +159,9 @@ export default function Dashboard() {
                 <Cog6ToothIcon className="h-6 w-6 text-primary-600" aria-hidden="true" />
               </div>
               <div className="ml-5">
-                <dt className="text-lg font-medium text-secondary-900">Settings</dt>
+                <dt className="text-lg font-medium text-secondary-900">Configuración</dt>
                 <dd className="mt-1 text-sm text-secondary-500">
-                  Manage your account and preferences
+                  Gestiona tu cuenta y preferencias
                 </dd>
               </div>
             </div>
@@ -173,23 +170,24 @@ export default function Dashboard() {
       </div>
       
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-secondary-800">Recent Uploads</h2>
+        <h2 className="text-lg font-medium text-secondary-800">Subidas recientes</h2>
         
         <div className="mt-4">
-          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">            <table className="min-w-full divide-y divide-secondary-200">
+          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+            <table className="min-w-full divide-y divide-secondary-200">
               <thead className="bg-secondary-50">
                 <tr>
                   <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-secondary-900 sm:pl-6">
-                    Document Name
+                    Nombre del documento
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-secondary-900">
-                    Date Uploaded
+                    Fecha de subida
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-secondary-900">
-                    Analysis Score
+                    Puntuación del análisis
                   </th>
                   <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                    <span className="sr-only">View</span>
+                    <span className="sr-only">Ver</span>
                   </th>
                 </tr>
               </thead>
@@ -197,7 +195,7 @@ export default function Dashboard() {
                 {loading ? (
                   <tr>
                     <td colSpan="4" className="py-4 text-center text-sm text-secondary-500">
-                      <div className="animate-pulse">Loading recent uploads...</div>
+                      <div className="animate-pulse">Cargando subidas recientes...</div>
                     </td>
                   </tr>
                 ) : recentUploads.length > 0 ? (
@@ -221,7 +219,7 @@ export default function Dashboard() {
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                         <Link href={`/dashboard/results/${upload.id}`} className="text-primary-600 hover:text-primary-900">
-                          View
+                          Ver
                         </Link>
                       </td>
                     </tr>
@@ -229,9 +227,9 @@ export default function Dashboard() {
                 ) : (
                   <tr>
                     <td colSpan="4" className="py-4 text-center text-sm text-secondary-500">
-                      No documents uploaded yet.{' '}
+                      No has subido ningún documento aún.{' '}
                       <Link href="/dashboard/upload" className="text-primary-600 hover:text-primary-900">
-                        Upload your first CV
+                        Sube tu primer CV
                       </Link>
                     </td>
                   </tr>
