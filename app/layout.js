@@ -17,7 +17,8 @@ export default function RootLayout({ children }) {
         {/* Aquí añadimos el favicon */}
         <link rel="icon" href="/icons/icono.png" type="image/png" />
         {/* Otros elementos que podrías agregar */}
-      </head>      <body className={inter.className}>
+      </head>
+       <body className={inter.className}>
         {/* Proveedor de autenticación para toda la aplicación */}
         <AuthProvider>
           <LanguageProvider>
